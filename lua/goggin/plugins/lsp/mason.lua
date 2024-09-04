@@ -37,6 +37,7 @@ return {
                 "sqlls",
                 "eslint",
                 "cssls",
+                "rust_analyzer",
             },
         })
 

@@ -98,17 +98,6 @@ return {
                     },
                 })
             end,
-            ["rust_analyzer"] = function()
-                lspconfig["rust_analyzer"].setup({
-                    capabilities = capabilities,
-                    cmd = {
-                        "rustup",
-                        "run",
-                        "stable",
-                        "rust_analyzer",
-                    },
-                })
-            end,
             ["sqlls"] = function()
                 lspconfig["sqlls"].setup({
                     capabilities = capabilities,
