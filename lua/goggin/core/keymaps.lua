@@ -3,7 +3,7 @@ local keymap = vim.keymap.set
 -- Save File --
 
 -- -- Normal Mode -- --
-keymap("n", "<c-s>", "<cmd>lua vim.lsp.buf.format()<cr><cmd>w!<cr>", {
+keymap("n", "<c-s>", "<cmd>w!<cr>", {
     desc = "Save File",
 })
 
