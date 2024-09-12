@@ -4,6 +4,10 @@ return {
     config = function()
         local conform = require("conform")
 
+        local function leptosfmt_enabled()
+            return vim.fn.glob("leptosfmt.toml") ~= ""
+        end
+
         conform.setup({
             formatters_by_ft = {
                 javascript = { "prettier" },
@@ -16,7 +20,10 @@ return {
                 yaml = { "prettier" },
                 markdown = { "prettier" },
                 lua = { "stylua" },
-                rust = { "leptosfmt", lsp_format = "fallback" },
+                rust = leptosfmt_enabled() and {
+                    command = "leptosfmt --stdin --rustfmt",
+                    lsp_format = "fallback",
+                } or { "rustfmt", lsp_format = "fallback" },
             },
         })
 
