@@ -16,7 +16,7 @@ return {
                 yaml = { "prettier" },
                 markdown = { "prettier" },
                 lua = { "stylua" },
-                rust = { "rustfmt", lsp_format = "fallback" },
+                rust = { "leptosfmt", lsp_format = "fallback" },
             },
         })
 

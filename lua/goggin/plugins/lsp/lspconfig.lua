@@ -107,6 +107,22 @@ return {
                     end,
                 })
             end,
+            ["rust_analyzer"] = function()
+                lspconfig["rust_analyzer"].setup({
+                    settings = {
+                        ["rust-analyzer"] = {
+                            procMacro = {
+                                ignored = {
+                                    leptos_macro = {
+                                        "component",
+                                        "server",
+                                    },
+                                },
+                            },
+                        },
+                    },
+                })
+            end,
         })
     end,
 }

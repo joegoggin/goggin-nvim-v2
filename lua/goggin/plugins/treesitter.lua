@@ -4,6 +4,7 @@ return {
     build = ":TSUpdate",
     dependencies = {
         "windwp/nvim-ts-autotag",
+        "rayliwell/tree-sitter-rstml",
     },
     config = function()
         local treesitter = require("nvim-treesitter.configs")
@@ -31,5 +32,8 @@ return {
                 enable = true,
             },
         })
+
+        require("tree-sitter-rstml").setup()
+        require("nvim-ts-autotag").setup()
     end,
 }
