@@ -42,7 +42,7 @@ return {
         })
 
         mason_tool_installer.setup({
-            ensure_installed = { "stylua", "prettier", "shellcheck", "shfmt", "eslint_d" },
+            ensure_installed = { "stylua", "prettierd", "shellcheck", "shfmt", "eslint_d" },
         })
     end,
 }
