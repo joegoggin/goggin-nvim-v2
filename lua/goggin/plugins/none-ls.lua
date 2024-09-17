@@ -1,6 +1,5 @@
 return {
     "nvimtools/none-ls.nvim",
-    event = { "BufReadPre", "BufNewFile" },
     config = function()
         local null_ls = require("null-ls")
         local formatting = null_ls.builtins.formatting
