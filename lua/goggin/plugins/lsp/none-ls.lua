@@ -1,5 +1,6 @@
 return {
     "nvimtools/none-ls.nvim",
+    event = { "BufReadPre", "BufNewFile" },
     config = function()
         local null_ls = require("null-ls")
         local formatting = null_ls.builtins.formatting
@@ -12,21 +13,11 @@ return {
             }),
             formatting.stylua,
             formatting.shfmt,
+            formatting.leptosfmt.with({
+                command = "leptosfmt",
+                args = { "--stdin", "--rustfmt" },
+            }),
         }
-
-        local function letptos_enabled()
-            local file = vim.fn.findfile("leptosfmt.toml", "**/")
-            return file ~= ""
-        end
-
-        if letptos_enabled() then
-            sources = {
-                formatting.leptosfmt.with({
-                    command = "leptosfmt",
-                    args = { "--stdin", "--rustfmt" },
-                }),
-            }
-        end
 
         if IsDelavieMediaProject() then
             sources = {
