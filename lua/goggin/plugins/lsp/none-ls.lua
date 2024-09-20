@@ -20,9 +20,7 @@ return {
         }
 
         if IsDelavieMediaProject() then
-            sources = {
-                formatting.eslint_d,
-            }
+            sources = {}
         end
 
         null_ls.setup({
