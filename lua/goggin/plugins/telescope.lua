@@ -65,5 +65,6 @@ return {
         keymap("n", "<leader>fr", builtin.resume, {
             desc = "Resume Previous Search",
         })
+        keymap("n", "<leader>ft", "<cmd>TodoTelescope<cr>", { desc = "Find ToDos" })
     end,
 }
