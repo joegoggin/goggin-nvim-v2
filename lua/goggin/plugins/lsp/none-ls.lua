@@ -10,6 +10,15 @@ return {
                 env = {
                     PRETTIERD_DEFAULT_CONFIG = vim.fn.expand("~/.config/nvim/utils/linter-config/.prettierrc.json"),
                 },
+                filetypes = {
+                    "javascript",
+                    "typescript",
+                    "javascriptreact",
+                    "typescriptreact",
+                    "scss",
+                    "css",
+                    "html",
+                },
             }),
             formatting.stylua,
             formatting.shfmt,
