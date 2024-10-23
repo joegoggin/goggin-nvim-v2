@@ -170,15 +170,88 @@ keymap("n", "<c-a>", "ggVG", {
     desc = "Select All",
 })
 
+-- Tabs --
+
+-- -- Normal Mode -- --
+keymap("n", "<leader>tn", "<cmd>tabnew<cr>", {
+    desc = "New Tab",
+})
+keymap("n", "<leader>tc", "<cmd>tabclose<cr>", {
+    desc = "Close Tab",
+})
+keymap("n", "<leader>tC", "<cmd>tabonly<cr>", {
+    desc = "Close All Tab",
+})
+keymap("n", "<leader>th", "<cmd>-tabmove<cr>", {
+    desc = "Move Tab Left",
+})
+keymap("n", "<leader>tl", "<cmd>+tabmove<cr>", {
+    desc = "Move Tab Right",
+})
+keymap("n", "<leader>tm1", "<cmd>tabmove 1<cr>", {
+    desc = "Move Tab To 1",
+})
+keymap("n", "<leader>tm2", "<cmd>tabmove 2<cr>", {
+    desc = "Move Tab To 2",
+})
+keymap("n", "<leader>tm3", "<cmd>tabmove 3<cr>", {
+    desc = "Move Tab To 3",
+})
+keymap("n", "<leader>tm4", "<cmd>tabmove 4<cr>", {
+    desc = "Move Tab To 4",
+})
+keymap("n", "<leader>tm5", "<cmd>tabmove 5<cr>", {
+    desc = "Move Tab To 5",
+})
+keymap("n", "<leader>tm6", "<cmd>tabmove 6<cr>", {
+    desc = "Move Tab To 6",
+})
+keymap("n", "<leader>tm7", "<cmd>tabmove 7<cr>", {
+    desc = "Move Tab To 7",
+})
+keymap("n", "<leader>tm8", "<cmd>tabmove 8<cr>", {
+    desc = "Move Tab To 8",
+})
+keymap("n", "<leader>tm9", "<cmd>tabmove 9<cr>", {
+    desc = "Move Tab To 9",
+})
+keymap("n", "<leader>t1", "<cmd>tabn 1<cr>", {
+    desc = "Go To 1",
+})
+keymap("n", "<leader>t2", "<cmd>tabn 2<cr>", {
+    desc = "Go To 2",
+})
+keymap("n", "<leader>t3", "<cmd>tabn 3<cr>", {
+    desc = "Go To 3",
+})
+keymap("n", "<leader>t4", "<cmd>tabn 4<cr>", {
+    desc = "Go To 4",
+})
+keymap("n", "<leader>t5", "<cmd>tabn 5<cr>", {
+    desc = "Go To 5",
+})
+keymap("n", "<leader>t6", "<cmd>tabn 6<cr>", {
+    desc = "Go To 6",
+})
+keymap("n", "<leader>t7", "<cmd>tabn 7<cr>", {
+    desc = "Go To 7",
+})
+keymap("n", "<leader>t8", "<cmd>tabn 8<cr>", {
+    desc = "Go To 8",
+})
+keymap("n", "<leader>t9", "<cmd>tabn 9<cr>", {
+    desc = "Go To 9",
+})
+keymap("n", "<s-h>", "<cmd>-tabnext<cr>", {
+    desc = "Previous Tab",
+})
+keymap("n", "<s-l>", "<cmd>+tabnext<cr>", {
+    desc = "Next Tab",
+})
+
 -- Buffer --
 
 -- -- Normal Mode -- --
-keymap("n", "<s-h>", "<cmd>bprevious<cr>", {
-    desc = "Previous Buffer",
-})
-keymap("n", "<s-l>", "<cmd>bnext<cr>", {
-    desc = "Next Buffer",
-})
 keymap("n", "<leader>c", "<cmd>bp<bar>sp<bar>bn<bar>bd<cr>", {
     desc = "Close Buffer",
 })
@@ -203,20 +276,11 @@ keymap("n", "<leader>gg", "<cmd>Git<cr>", {
 -- Toggle Term --
 
 -- -- Normal Mode -- --
-keymap("n", "<leader>t", "<cmd>ToggleTerm<cr>", {
+keymap("n", "<leader><leader>", "<cmd>ToggleTerm<cr>", {
     desc = "Toggle Terminal",
 })
 keymap("n", "<leader>tt", "<cmd>ToggleTerm direction=tab<cr>", {
     desc = "Toggle Terminal in New Tab",
-})
-keymap("n", "<leader>tf", "<cmd>ToggleTerm direction=float<cr>", {
-    desc = "Toggle Floating Terminal",
-})
-keymap("n", "<leader>tv", "<cmd>ToggleTerm size=80 direction=vertical<cr>", {
-    desc = "Toggle Verticle Terminal",
-})
-keymap("n", "<leader>th", "<cmd>ToggleTerm direction=horizontal<cr>", {
-    desc = "Toggle Horizontal Terminal",
 })
 
 -- Vim REST Console --
