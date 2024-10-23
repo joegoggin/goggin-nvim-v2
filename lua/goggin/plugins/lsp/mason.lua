@@ -36,7 +36,6 @@ return {
                 "bashls",
                 "sqlls",
                 "eslint",
-                "cssls",
                 "rust_analyzer",
                 "somesass_ls",
             },
