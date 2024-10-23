@@ -173,7 +173,7 @@ keymap("n", "<c-a>", "ggVG", {
 -- Tabs --
 
 -- -- Normal Mode -- --
-keymap("n", "<leader>tn", "<cmd>tabnew<cr>", {
+keymap("n", "<leader>tn", "<cmd>$tabnew<cr>", {
     desc = "New Tab",
 })
 keymap("n", "<leader>tc", "<cmd>tabclose<cr>", {
