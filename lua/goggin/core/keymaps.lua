@@ -252,6 +252,12 @@ keymap("n", "<s-l>", "<cmd>+tabnext<cr>", {
 -- Buffer --
 
 -- -- Normal Mode -- --
+keymap("n", "{", "<cmd>bprevious<cr>", {
+    desc = "Previous Buffer",
+})
+keymap("n", "}", "<cmd>bnext<cr>", {
+    desc = "Next Buffer",
+})
 keymap("n", "<leader>c", "<cmd>bp<bar>sp<bar>bn<bar>bd<cr>", {
     desc = "Close Buffer",
 })
