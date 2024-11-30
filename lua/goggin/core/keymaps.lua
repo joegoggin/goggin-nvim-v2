@@ -107,6 +107,9 @@ keymap("n", 'ci"', '"_ci"', {
 keymap("n", "ci`", '"_ci`', {
     desc = "Change Inside ``}",
 })
+keymap("n", "ci'", "\"_ci'", {
+    desc = "Change Inside '",
+})
 
 -- -- Visual Mode -- --
 keymap("v", "c", '"_c', {
