@@ -57,71 +57,57 @@ return {
             vim.fn.sign_define(hl, { text = icon, texthl = hl, numhl = "" })
         end
 
-        mason_lspconfig.setup_handlers({
-            -- default handler for installed servers
-            function(server_name)
-                lspconfig[server_name].setup({
-                    capabilities = capabilities,
-                })
-            end,
-            ["emmet_ls"] = function()
-                -- configure emmet language server
-                lspconfig["emmet_ls"].setup({
-                    capabilities = capabilities,
-                    filetypes = { "html" },
-                })
-            end,
-            ["lua_ls"] = function()
-                -- configure lua server (with special settings)
-                lspconfig["lua_ls"].setup({
-                    capabilities = capabilities,
-                    settings = {
-                        Lua = {
-                            -- make the language server recognize "vim" global
-                            diagnostics = {
-                                globals = { "vim" },
-                            },
-                            completion = {
-                                callSnippet = "Replace",
-                            },
+        lspconfig["emmet_ls"].setup({
+            capabilities = capabilities,
+            filetypes = { "html" },
+        })
+
+        -- configure lua server (with special settings)
+        lspconfig["lua_ls"].setup({
+            capabilities = capabilities,
+            settings = {
+                Lua = {
+                    -- make the language server recognize "vim" global
+                    diagnostics = {
+                        globals = { "vim" },
+                    },
+                    completion = {
+                        callSnippet = "Replace",
+                    },
+                },
+            },
+        })
+
+        lspconfig["ts_ls"].setup({
+            capabilites = capabilities,
+            init_options = {
+                preferences = {
+                    importModuleSpecifierPreference = "non-relative",
+                },
+            },
+        })
+
+        lspconfig["rust_analyzer"].setup({
+            capabilities = capabilities,
+            settings = {
+                ["rust_analyzer"] = {
+                    check = {
+                        allTargets = false,
+                    },
+                    procMacro = {
+                        enable = true,
+                    },
+                    cargo = {
+                        buildScripts = {
+                            enable = true,
                         },
                     },
-                })
-            end,
-            ["ts_ls"] = function()
-                lspconfig["ts_ls"].setup({
-                    capabilites = capabilities,
-                    init_options = {
-                        preferences = {
-                            importModuleSpecifierPreference = "non-relative",
-                        },
-                    },
-                })
-            end,
-            ["sqlls"] = function()
-                lspconfig["sqlls"].setup({
-                    capabilities = capabilities,
-                    filetypes = { "sql" },
-                    root_dir = function()
-                        return vim.loop.cwd()
-                    end,
-                })
-            end,
-            ["rust_analyzer"] = function()
-                lspconfig["rust_analyzer"].setup({
-                    settings = {
-                        ["rust-analyzer"] = {
-                            procMacro = {
-                                ignored = {
-                                    leptos_macro = {
-                                        "server",
-                                    },
-                                },
-                            },
-                        },
-                    },
-                })
-            end,
+                },
+            },
+        })
+
+        lspconfig["postgres_lsp"].setup({
+            capabilities = capabilities,
         })
     end,
 }

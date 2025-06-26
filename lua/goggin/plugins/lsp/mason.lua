@@ -34,11 +34,11 @@ return {
                 "dockerls",
                 "docker_compose_language_service",
                 "bashls",
-                "sqlls",
                 "eslint",
-                "rust_analyzer",
                 "somesass_ls",
+                "postgres_lsp",
             },
+            automatic_enable = true,
         })
 
         mason_tool_installer.setup({
