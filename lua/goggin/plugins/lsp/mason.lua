@@ -37,6 +37,7 @@ return {
                 "eslint",
                 "somesass_ls",
                 "postgres_lsp",
+                "pyright",
             },
             automatic_enable = true,
         })
