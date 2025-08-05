@@ -12,6 +12,11 @@ return {
             "<cmd>Yazi cwd<cr>",
             desc = "Open the file manager in nvim's working directory",
         },
+        {
+            "<leader>E",
+            "<cmd>Yazi<cr>",
+            desc = "Open yazi a the current file",
+        },
     },
     opts = {
         open_for_directories = true,
@@ -21,8 +26,5 @@ return {
     },
     init = function()
         vim.g.loaded_netrwPlugin = 1
-    end,
-    on_close = function()
-        print("yazi closed")
     end,
 }
