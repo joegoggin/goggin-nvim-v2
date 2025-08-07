@@ -66,5 +66,6 @@ return {
             desc = "Resume Previous Search",
         })
         keymap("n", "<leader>ft", "<cmd>TodoTelescope<cr>", { desc = "Find ToDos" })
+        keymap("n", "<leader>fb", "<cmd>Telescope buffers<cr>", { desc = "Find Open Buffers" })
     end,
 }
