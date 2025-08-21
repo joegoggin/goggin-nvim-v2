@@ -18,6 +18,7 @@ return {
                     "scss",
                     "css",
                     "html",
+                    "json",
                 },
             }),
             formatting.stylua,
