@@ -38,6 +38,7 @@ return {
                 "somesass_ls",
                 "postgres_lsp",
                 "pyright",
+                "elixirls",
             },
             automatic_enable = true,
         })
