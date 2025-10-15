@@ -58,7 +58,7 @@ return {
 
         lspconfig["emmet_ls"].setup({
             capabilities = capabilities,
-            filetypes = { "html" },
+            filetypes = { "html", "heex" },
         })
 
         -- configure lua server (with special settings)
