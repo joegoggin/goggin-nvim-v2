@@ -26,6 +26,9 @@ return {
                     ".docusaurus",
                     ".react-email",
                     "**/*.lock",
+                    ".elixir_ls/",
+                    "_build/",
+                    "deps/",
                 },
             },
         })
