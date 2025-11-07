@@ -264,7 +264,7 @@ keymap("n", "}", "<cmd>bnext<cr>", {
 keymap("n", "<leader>c", "<cmd>bp<bar>sp<bar>bn<bar>bd<cr>", {
     desc = "Close Buffer",
 })
-keymap("n", "<leader>C", "<cmd>bufdo bd<cr>", {
+keymap("n", "<leader>C", "<cmd>bufdo bd<cr><cmd>Alpha<cr>", {
     desc = "Close All Buffers",
 })
 
