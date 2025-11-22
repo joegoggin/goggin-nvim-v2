@@ -308,3 +308,9 @@ keymap("n", "<leader>dd", "<cmd>DBUIToggle<cr>", {
 keymap("n", "<leader>df", "<cmd>DBUIFindBuffer<cr>", {
     desc = "Add Buffer to DB UI Queries",
 })
+
+-- Markview --
+-- -- Normal Mode -- --
+keymap("n", "<leader>m", "<cmd>Markview Toggle<cr>", {
+    desc = "Toggle Markview",
+})
