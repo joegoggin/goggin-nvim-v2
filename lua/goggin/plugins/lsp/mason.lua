@@ -39,6 +39,7 @@ return {
                 "postgres_lsp",
                 "pyright",
                 "elixirls",
+                "taplo",
             },
             automatic_enable = true,
         })

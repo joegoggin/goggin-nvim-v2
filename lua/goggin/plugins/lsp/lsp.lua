@@ -10,10 +10,12 @@ return {
 
         local keymap = vim.keymap.set
 
+        -- disable virtual text
         vim.diagnostic.config({
             virtual_text = false,
         })
 
+        -- add custom key maps
         vim.api.nvim_create_autocmd("LspAttach", {
             group = vim.api.nvim_create_augroup("UserLspConfig", {}),
             callback = function()
@@ -58,5 +60,8 @@ return {
                 },
             },
         })
+
+        -- enable LSP servers not installed through mason
+        vim.lsp.enable("rust_analyzer")
     end,
 }
