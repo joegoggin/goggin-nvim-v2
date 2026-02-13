@@ -23,6 +23,7 @@ return {
         dashboard.section.buttons.val = {
             dashboard.button("f", "   Find File", ":Telescope find_files<CR>"),
             dashboard.button("e", "   Browse Files", ":Yazi<CR>"),
+            dashboard.button("d", "   Code Diff", ":CodeDiff HEAD<CR>"),
             dashboard.button("u", "   Update Plugins", ":Lazy update<CR>"),
             dashboard.button("q", " 󰍃  Quit Neovim", ":qa!<CR>"),
         }
