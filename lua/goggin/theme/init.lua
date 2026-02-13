@@ -285,6 +285,13 @@ local function apply_highlights(colors)
     set(0, "@variable", { fg = colors.fg })
     set(0, "@property", { fg = colors.cyan })
     set(0, "@parameter", { fg = colors.bright_red })
+
+    -- Telescope
+    set(0, "TelescopeSelection", { fg = colors.bg, bg = colors.accent })
+    set(0, "TelescopeSelectionCaret", { fg = colors.bg, bg = colors.accent })
+
+    -- CodeDiff
+    set(0, "CodeDiffExplorerSelected", { bg = colors.bg })
 end
 
 function M.get_lualine_theme()
