@@ -80,6 +80,12 @@ return {
         keymap("n", "<leader>fc", function()
             find_in_dir("common")
         end, { desc = "Find Files in Common" })
+        keymap("n", "<leader>fi", function()
+            builtin.find_files({
+                search_dirs = { vim.fn.getcwd() },
+                find_command = { "find", ".", "-maxdepth", "1", "-name", "issue-*.md" },
+            })
+        end, { desc = "Find Issue Files" })
         keymap("n", "<leader>fr", builtin.resume, {
             desc = "Resume Previous Search",
         })
