@@ -19,6 +19,9 @@ return {
         vim.api.nvim_create_autocmd("LspAttach", {
             group = vim.api.nvim_create_augroup("UserLspConfig", {}),
             callback = function()
+                keymap("n", "<leader>lw", vim.lsp.buf.references, {
+                    desc = "Find LSP References Of Word Under Cursor",
+                })
                 keymap("n", "<leader>lr", vim.lsp.buf.rename, {
                     desc = "Rename",
                 })

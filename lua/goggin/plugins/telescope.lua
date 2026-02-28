@@ -62,9 +62,24 @@ return {
         keymap("n", "<leader>fk", builtin.keymaps, {
             desc = "Find Keymaps",
         })
-        keymap("n", "<leader>fw", builtin.lsp_references, {
-            desc = "Find LSP References Of Word Under Cursor",
-        })
+        local function find_in_dir(dir)
+            local path = vim.fn.getcwd() .. "/" .. dir
+            if vim.fn.isdirectory(path) == 1 then
+                builtin.find_files({ cwd = path, no_ignore = true, hidden = true })
+            else
+                vim.notify("Directory '" .. dir .. "' not found in current project", vim.log.levels.WARN)
+            end
+        end
+
+        keymap("n", "<leader>fa", function()
+            find_in_dir("api")
+        end, { desc = "Find Files in API" })
+        keymap("n", "<leader>fw", function()
+            find_in_dir("web")
+        end, { desc = "Find Files in Web" })
+        keymap("n", "<leader>fc", function()
+            find_in_dir("common")
+        end, { desc = "Find Files in Common" })
         keymap("n", "<leader>fr", builtin.resume, {
             desc = "Resume Previous Search",
         })
