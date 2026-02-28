@@ -61,6 +61,23 @@ return {
             },
         })
 
+        -- suppress banDropTable lint in .down.sql migration files
+        vim.lsp.config("postgres_lsp", {
+            handlers = {
+                ["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+                    if result and result.uri and result.uri:match("%.down%.sql$") then
+                        result.diagnostics = vim.tbl_filter(function(d)
+                            local code = d.code or ""
+                            return code ~= "banDropTable"
+                                and code ~= "safety/banDropTable"
+                                and code ~= "lint/safety/banDropTable"
+                        end, result.diagnostics)
+                    end
+                    vim.lsp.diagnostic.on_publish_diagnostics(err, result, ctx, config)
+                end,
+            },
+        })
+
         -- enable LSP servers not installed through mason
         vim.lsp.enable("rust_analyzer")
     end,
