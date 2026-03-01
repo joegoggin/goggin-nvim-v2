@@ -37,6 +37,7 @@ return {
         end
 
         vim.list_extend(buttons, {
+            dashboard.button("i", "   Find Issues", "<cmd>lua require('telescope.builtin').find_files({ search_dirs = { vim.fn.getcwd() }, find_command = { 'find', '.', '-maxdepth', '1', '-name', 'issue-*.md' } })<CR>"),
             dashboard.button("e", "   Browse Files", ":Yazi<CR>"),
             dashboard.button("d", "   Code Diff", ":CodeDiff HEAD<CR>"),
             dashboard.button("g", "   Git", ":Git<CR>"),
