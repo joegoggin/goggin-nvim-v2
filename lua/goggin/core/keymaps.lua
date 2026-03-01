@@ -49,6 +49,9 @@ keymap("n", "<leader>wh", "<cmd>split<cr>", {
 keymap("n", "<leader>wc", "<c-w>c", {
     desc = "Close Window",
 })
+keymap("n", "<leader>ow", "<cmd>setlocal wrap!<cr>", {
+    desc = "Toggle Wrap",
+})
 keymap("n", "-", "<cmd>vertical resize -5<cr>", {
     desc = "Decrease Window Width",
 })
