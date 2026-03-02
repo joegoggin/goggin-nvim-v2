@@ -264,10 +264,10 @@ keymap("n", "{", "<cmd>bprevious<cr>", {
 keymap("n", "}", "<cmd>bnext<cr>", {
     desc = "Next Buffer",
 })
-keymap("n", "<leader>c", "<cmd>bp<bar>sp<bar>bn<bar>bd<cr>", {
+keymap("n", "<leader>c", "<cmd>bd<cr>", {
     desc = "Close Buffer",
 })
-keymap("n", "<leader>C", "<cmd>bufdo bd<cr><cmd>Alpha<cr>", {
+keymap("n", "<leader>C", "<cmd>bufdo bd<cr>", {
     desc = "Close All Buffers",
 })
 
