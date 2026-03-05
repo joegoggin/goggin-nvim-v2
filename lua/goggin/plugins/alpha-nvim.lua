@@ -33,7 +33,13 @@ return {
 
         for _, d in ipairs(dirs) do
             if vim.fn.isdirectory(vim.fn.getcwd() .. "/" .. d.dir) == 1 then
-                table.insert(buttons, dashboard.button(d.key, d.label, ":Telescope find_files cwd=" .. d.dir .. "<CR>"))
+                local cmd = ":Telescope find_files cwd=" .. d.dir .. "<CR>"
+
+                if d.dir == "issues" then
+                    cmd = ":Telescope find_files cwd=" .. d.dir .. " no_ignore=true hidden=true<CR>"
+                end
+
+                table.insert(buttons, dashboard.button(d.key, d.label, cmd))
             end
         end
 
