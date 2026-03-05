@@ -28,6 +28,7 @@ return {
             { key = "a", label = "   Find in API", dir = "api" },
             { key = "w", label = "   Find in Web", dir = "web" },
             { key = "c", label = "   Find in Common", dir = "common" },
+            { key = "i", label = "   Find in Issues", dir = "issues" },
         }
 
         for _, d in ipairs(dirs) do
@@ -37,7 +38,6 @@ return {
         end
 
         vim.list_extend(buttons, {
-            dashboard.button("i", "   Find Issues", "<cmd>lua require('telescope.builtin').find_files({ search_dirs = { vim.fn.getcwd() }, find_command = { 'find', '.', '-maxdepth', '1', '-name', 'issue-*.md' } })<CR>"),
             dashboard.button("e", "   Browse Files", ":Yazi<CR>"),
             dashboard.button("d", "   Code Diff", ":CodeDiff HEAD<CR>"),
             dashboard.button("g", "   Git", ":Git<CR>"),
