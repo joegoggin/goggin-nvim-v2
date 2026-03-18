@@ -21,6 +21,7 @@ return {
                 "javascript",
                 "json",
                 "markdown",
+                "python",
                 "prisma",
                 "regex",
                 "bash",
