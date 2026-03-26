@@ -38,6 +38,7 @@ return {
         -- set keymaps
         local keymap = vim.keymap.set
         local builtin = require("telescope.builtin")
+        local component_pair_picker = require("goggin.telescope.component_pair_picker")
 
         keymap("n", "<leader>ff", function()
             builtin.find_files({ no_ignore = true, hidden = true })
@@ -88,5 +89,8 @@ return {
         })
         keymap("n", "<leader>ft", "<cmd>TodoTelescope<cr>", { desc = "Find ToDos" })
         keymap("n", "<leader>fb", "<cmd>Telescope buffers<cr>", { desc = "Find Open Buffers" })
+        keymap("n", "<leader>oc", function()
+            component_pair_picker.pick()
+        end, { desc = "Open Component + Style" })
     end,
 }
