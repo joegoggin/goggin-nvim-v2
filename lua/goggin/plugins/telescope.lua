@@ -40,6 +40,7 @@ return {
         local builtin = require("telescope.builtin")
         local component_pair_picker = require("goggin.telescope.component_pair_picker")
         local component_generator = require("goggin.telescope.component_generator")
+        local page_generator = require("goggin.telescope.page_generator")
         local page_component_picker = require("goggin.telescope.page_component_picker")
 
         keymap("n", "<leader>ff", function()
@@ -100,5 +101,8 @@ return {
         keymap("n", "<leader>nc", function()
             component_generator.generate()
         end, { desc = "New Component" })
+        keymap("n", "<leader>np", function()
+            page_generator.generate()
+        end, { desc = "New Page" })
     end,
 }
