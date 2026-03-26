@@ -39,6 +39,8 @@ return {
         local keymap = vim.keymap.set
         local builtin = require("telescope.builtin")
         local component_pair_picker = require("goggin.telescope.component_pair_picker")
+        local component_generator = require("goggin.telescope.component_generator")
+        local page_component_picker = require("goggin.telescope.page_component_picker")
 
         keymap("n", "<leader>ff", function()
             builtin.find_files({ no_ignore = true, hidden = true })
@@ -92,5 +94,11 @@ return {
         keymap("n", "<leader>oc", function()
             component_pair_picker.pick()
         end, { desc = "Open Component + Style" })
+        keymap("n", "<leader>op", function()
+            page_component_picker.pick_page()
+        end, { desc = "Open Page + Components" })
+        keymap("n", "<leader>nc", function()
+            component_generator.generate()
+        end, { desc = "New Component" })
     end,
 }
