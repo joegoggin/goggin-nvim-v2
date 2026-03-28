@@ -249,70 +249,68 @@ local function ensure_use_declaration(mod_path, use_expression)
     return true
 end
 
-local function run_command(command, args)
-    local cmd = { command }
-    vim.list_extend(cmd, args)
-
-    if vim.system then
-        local result = vim.system(cmd, { text = true }):wait()
-        if result.code == 0 then
-            return true, nil
+local function supports_buffer_formatting(bufnr)
+    local clients = vim.lsp.get_clients({ bufnr = bufnr })
+    for _, client in ipairs(clients) do
+        if client.supports_method and client:supports_method("textDocument/formatting") then
+            return true
         end
+    end
 
-        local output = result.stderr
-        if not output or output == "" then
-            output = result.stdout
+    return false
+end
+
+local function format_file_with_nvim(path)
+    if not file_exists(path) then
+        return
+    end
+
+    local bufnr = vim.fn.bufadd(path)
+    local was_loaded = vim.api.nvim_buf_is_loaded(bufnr)
+
+    if not was_loaded then
+        vim.fn.bufload(bufnr)
+    end
+
+    if not vim.api.nvim_buf_is_valid(bufnr) then
+        return
+    end
+
+    if supports_buffer_formatting(bufnr) then
+        local format_ok, format_err = pcall(vim.lsp.buf.format, {
+            bufnr = bufnr,
+            async = false,
+            timeout_ms = 5000,
+        })
+
+        if not format_ok then
+            vim.notify("Formatting failed for " .. path .. ":\n" .. tostring(format_err), vim.log.levels.WARN)
         end
-
-        return false, output or ""
     end
 
-    local escaped = {}
-    for _, part in ipairs(cmd) do
-        table.insert(escaped, vim.fn.shellescape(part))
+    if vim.api.nvim_buf_is_valid(bufnr) and vim.bo[bufnr].modified then
+        local write_ok, write_err = pcall(vim.api.nvim_buf_call, bufnr, function()
+            vim.cmd("silent write")
+        end)
+
+        if not write_ok then
+            vim.notify("Failed to write formatted file " .. path .. ":\n" .. tostring(write_err), vim.log.levels.WARN)
+        end
     end
 
-    local output = vim.fn.system(table.concat(escaped, " "))
-    if vim.v.shell_error == 0 then
-        return true, nil
+    if not was_loaded and vim.api.nvim_buf_is_valid(bufnr) and vim.fn.bufwinnr(bufnr) == -1 and not vim.bo[bufnr].modified then
+        pcall(vim.api.nvim_buf_delete, bufnr, { force = true })
     end
-
-    return false, output
 end
 
 local function format_touched_files(touched_files)
-    local rust_files = {}
-    local scss_files = {}
+    local seen = {}
 
     for _, path in ipairs(touched_files) do
-        if path:match("%.rs$") then
-            table.insert(rust_files, path)
-        elseif path:match("%.scss$") then
-            table.insert(scss_files, path)
-        end
-    end
-
-    if #rust_files > 0 then
-        if vim.fn.executable("rustfmt") == 1 then
-            local ok, output = run_command("rustfmt", rust_files)
-            if not ok then
-                vim.notify("rustfmt failed:\n" .. output, vim.log.levels.WARN)
-            end
-        else
-            vim.notify("rustfmt not found in PATH; skipping Rust formatting.", vim.log.levels.WARN)
-        end
-    end
-
-    if #scss_files > 0 then
-        if vim.fn.executable("prettier") == 1 then
-            local args = { "--write", "--parser", "scss" }
-            vim.list_extend(args, scss_files)
-            local ok, output = run_command("prettier", args)
-            if not ok then
-                vim.notify("prettier failed:\n" .. output, vim.log.levels.WARN)
-            end
-        else
-            vim.notify("prettier not found in PATH; skipping SCSS formatting.", vim.log.levels.WARN)
+        local should_format = path:match("%.rs$") or path:match("%.scss$")
+        if should_format and not seen[path] then
+            seen[path] = true
+            format_file_with_nvim(path)
         end
     end
 end
@@ -504,9 +502,6 @@ local function create_component_files(opts)
     end
 
     format_touched_files(touched_files)
-
-    vim.notify("Created component " .. component_name)
-    vim.notify(table.concat(touched_files, "\n"), vim.log.levels.INFO)
 
     open_created_pair(rust_path, scss_path)
 end

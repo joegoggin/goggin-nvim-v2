@@ -124,10 +124,7 @@ local function delete_component(component)
         vim.notify("No matching SCSS file found for " .. component.component_name .. ". Deleted Rust component only.", vim.log.levels.WARN)
     end
 
-    vim.notify("Deleted component " .. component.component_name)
-    if #touched_files > 0 then
-        vim.notify(table.concat(touched_files, "\n"), vim.log.levels.INFO)
-    end
+    vim.notify("Successfully deleted component " .. component.component_name)
 end
 
 local function confirm_delete(component)

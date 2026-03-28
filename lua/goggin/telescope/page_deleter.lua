@@ -524,16 +524,10 @@ local function delete_page_component(page, entry)
     end
 
     if can_demote_page_to_flat(page) then
-        local demoted = demote_page_module_to_flat(page, touched_map, touched_files)
-        if demoted then
-            vim.notify("Converted page " .. page.display_name .. " back to flat layout")
-        end
+        demote_page_module_to_flat(page, touched_map, touched_files)
     end
 
-    vim.notify("Deleted page component " .. entry.component_name)
-    if #touched_files > 0 then
-        vim.notify(table.concat(touched_files, "\n"), vim.log.levels.INFO)
-    end
+    vim.notify("Successfully deleted page component " .. entry.component_name)
 end
 
 local function delete_page(page)
@@ -633,10 +627,7 @@ local function delete_page(page)
         delete_utils.mark_once(touched_map, touched_files, APP_PATH)
     end
 
-    vim.notify("Deleted page " .. page.display_name)
-    if #touched_files > 0 then
-        vim.notify(table.concat(touched_files, "\n"), vim.log.levels.INFO)
-    end
+    vim.notify("Successfully deleted page " .. page.display_name)
 end
 
 local function confirm_delete(page, entry)
