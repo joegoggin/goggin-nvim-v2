@@ -4,6 +4,7 @@ local finders = require("telescope.finders")
 local pickers = require("telescope.pickers")
 local conf = require("telescope.config").values
 local web_paths = require("goggin.telescope.web_paths")
+local delete_utils = require("goggin.telescope.delete_utils")
 
 local M = {}
 
@@ -573,7 +574,7 @@ local function map_component_style_segments(rust_segments, root_forwards)
     return mapped
 end
 
-local function collect_regular_component_items()
+local function collect_regular_component_items(include_existing)
     local rust_files = vim.fn.glob(COMPONENTS_DIR .. "/**/*.rs", true, true)
     local root_forwards = collect_forward_targets(path_join(STYLES_DIR, "index.scss"))
     local items = {}
@@ -594,9 +595,10 @@ local function collect_regular_component_items()
                 local rust_stem = vim.fn.fnamemodify(rust_relative, ":t:r")
                 local style_plan = resolve_partial_style_plan(style_base_dir, rust_stem)
 
-                if not style_plan.exists then
-                    local class_name = extract_existing_class_name(rust_path) or to_kebab_case(component_name)
-                    if class_name == "" then
+                local include_item = (include_existing and style_plan.exists) or (not include_existing and not style_plan.exists)
+                if include_item then
+                    local class_name = extract_existing_class_name(rust_path)
+                    if not class_name or class_name == "" then
                         class_name = style_plan.target
                     end
 
@@ -712,27 +714,30 @@ local function resolve_page_style_plan(page)
     }
 end
 
-local function collect_page_related_items()
+local function collect_page_related_items(include_existing)
     local items = {}
     local pages = collect_pages()
 
     for _, page in ipairs(pages) do
         local page_style = resolve_page_style_plan(page)
-        if not page_style.exists then
+        local include_page = (include_existing and page_style.exists) or (not include_existing and not page_style.exists)
+        if include_page then
             local class_name = extract_existing_class_name(page.rust_path) or class_name_from_page_component(page.page_component_name)
-            if class_name and class_name ~= "" then
-                table.insert(items, {
-                    item_type = "page",
-                    kind_label = "Page",
-                    component_name = page.page_component_name,
-                    rust_path = page.rust_path,
-                    rust_relative = page.rust_relative,
-                    scss_path = page_style.path,
-                    style_segments = page_style.segments,
-                    style_target = page_style.target,
-                    class_name = class_name,
-                })
+            if not class_name or class_name == "" then
+                class_name = page_style.target
             end
+
+            table.insert(items, {
+                item_type = "page",
+                kind_label = "Page",
+                component_name = page.page_component_name,
+                rust_path = page.rust_path,
+                rust_relative = page.rust_relative,
+                scss_path = page_style.path,
+                style_segments = page_style.segments,
+                style_target = page_style.target,
+                class_name = class_name,
+            })
         end
 
         if page.is_module_layout then
@@ -760,10 +765,12 @@ local function collect_page_related_items()
                             local stem = vim.fn.fnamemodify(relative_from_components, ":t:r")
                             local style_plan = resolve_partial_style_plan(style_base_dir, stem)
 
-                            if not style_plan.exists then
-                                local class_name = extract_existing_class_name(rust_path) or to_kebab_case(component_name)
-                                if class_name == "" then
-                                    class_name = class_name_from_page_component(page.page_component_name)
+                            local include_component =
+                                (include_existing and style_plan.exists) or (not include_existing and not style_plan.exists)
+                            if include_component then
+                                local class_name = extract_existing_class_name(rust_path)
+                                if not class_name or class_name == "" then
+                                    class_name = style_plan.target
                                 end
 
                                 table.insert(items, {
@@ -794,14 +801,14 @@ local TYPE_ORDER = {
     component = 3,
 }
 
-local function collect_missing_style_items()
+local function collect_style_items(include_existing)
     local items = {}
 
-    for _, item in ipairs(collect_page_related_items()) do
+    for _, item in ipairs(collect_page_related_items(include_existing)) do
         table.insert(items, item)
     end
 
-    for _, item in ipairs(collect_regular_component_items()) do
+    for _, item in ipairs(collect_regular_component_items(include_existing)) do
         table.insert(items, item)
     end
 
@@ -859,30 +866,55 @@ local function create_missing_style(item)
     open_created_pair(item.rust_path, item.scss_path)
 end
 
-function M.pick()
-    if not resolve_paths() then
+local function delete_existing_style(item)
+    if not file_exists(item.scss_path) then
+        vim.notify("Style file not found: " .. item.scss_path, vim.log.levels.WARN)
         return
     end
 
+    local touched_map = {}
+    local touched_files = {}
+
+    local removed_scss, scss_error = delete_utils.delete_path(item.scss_path, false)
+    if not removed_scss then
+        vim.notify(scss_error, vim.log.levels.WARN)
+        return
+    end
+
+    mark_once(touched_map, touched_files, item.scss_path)
+
+    local style_dir = vim.fn.fnamemodify(item.scss_path, ":h")
+    local style_index = path_join(style_dir, "index.scss")
+    if delete_utils.remove_forward(style_index, item.style_target) then
+        mark_once(touched_map, touched_files, style_index)
+    end
+
+    local style_root = item.item_type == "component" and STYLES_DIR or PAGE_STYLES_DIR
+    delete_utils.prune_empty_style_dirs(style_dir, style_root, touched_map, touched_files)
+
+    format_touched_files(touched_files)
+
+    vim.notify("Successfully deleted style for " .. item.component_name)
+end
+
+local function ensure_required_directories()
     if vim.fn.isdirectory(COMPONENTS_DIR) ~= 1 or vim.fn.isdirectory(PAGES_DIR) ~= 1 then
         vim.notify("Component or page directories were not found.", vim.log.levels.WARN)
-        return
+        return false
     end
 
     if vim.fn.isdirectory(STYLES_DIR) ~= 1 or vim.fn.isdirectory(PAGE_STYLES_DIR) ~= 1 then
         vim.notify("Component or page style directories were not found.", vim.log.levels.WARN)
-        return
+        return false
     end
 
-    local items = collect_missing_style_items()
-    if #items == 0 then
-        vim.notify("No pages or components are missing styles.", vim.log.levels.WARN)
-        return
-    end
+    return true
+end
 
+local function pick_items(prompt_title, items, on_select)
     pickers
         .new({}, {
-            prompt_title = "Add Missing Style",
+            prompt_title = prompt_title,
             finder = finders.new_table({
                 results = items,
                 entry_maker = function(item)
@@ -900,7 +932,7 @@ function M.pick()
                     actions.close(prompt_bufnr)
 
                     if selection and selection.value then
-                        create_missing_style(selection.value)
+                        on_select(selection.value)
                     end
                 end)
 
@@ -908,6 +940,50 @@ function M.pick()
             end,
         })
         :find()
+end
+
+local function confirm_delete(item)
+    vim.ui.select({ "No", "Yes" }, { prompt = "Delete style for " .. item.component_name .. "?" }, function(choice)
+        if choice == "Yes" then
+            delete_existing_style(item)
+        end
+    end)
+end
+
+function M.pick()
+    if not resolve_paths() then
+        return
+    end
+
+    if not ensure_required_directories() then
+        return
+    end
+
+    local items = collect_style_items(false)
+    if #items == 0 then
+        vim.notify("No pages or components are missing styles.", vim.log.levels.WARN)
+        return
+    end
+
+    pick_items("Add Missing Style", items, create_missing_style)
+end
+
+function M.pick_delete()
+    if not resolve_paths() then
+        return
+    end
+
+    if not ensure_required_directories() then
+        return
+    end
+
+    local items = collect_style_items(true)
+    if #items == 0 then
+        vim.notify("No pages or components with styles were found.", vim.log.levels.WARN)
+        return
+    end
+
+    pick_items("Delete Style", items, confirm_delete)
 end
 
 return M
