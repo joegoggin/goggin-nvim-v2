@@ -28,7 +28,38 @@ local function file_exists(path)
 end
 
 local function path_join(...)
-    return table.concat({ ... }, "/")
+    local parts = {}
+    for _, part in ipairs({ ... }) do
+        if part and part ~= "" then
+            table.insert(parts, part)
+        end
+    end
+
+    return table.concat(parts, "/")
+end
+
+local function path_relative(root, path)
+    local prefix = root .. "/"
+    if path:sub(1, #prefix) == prefix then
+        return path:sub(#prefix + 1)
+    end
+
+    if path == root then
+        return ""
+    end
+
+    return path
+end
+
+local function to_kebab_case(value)
+    local normalized = value or ""
+    normalized = normalized:gsub("([a-z0-9])([A-Z])", "%1-%2")
+    normalized = normalized:gsub("([A-Z]+)([A-Z][a-z])", "%1-%2")
+    normalized = normalized:gsub("_", "-")
+    normalized = normalized:lower()
+    normalized = normalized:gsub("%-+", "-")
+    normalized = normalized:gsub("^%-+", ""):gsub("%-+$", "")
+    return normalized
 end
 
 local function parse_component_name(file_path)
@@ -71,6 +102,34 @@ local function resolve_partial_style(base_dir, stem)
     return nil
 end
 
+local function resolve_page_style(page)
+    local stem = vim.fn.fnamemodify(page.rust_relative, ":t:r")
+    local style_base_dir = page.relative_dir ~= "" and path_join(PAGE_STYLES_DIR, page.relative_dir) or PAGE_STYLES_DIR
+
+    local by_stem = resolve_partial_style(style_base_dir, stem)
+    if by_stem then
+        return by_stem
+    end
+
+    local component_kebab = to_kebab_case(page.component_name)
+    if component_kebab ~= "" then
+        local by_component = path_join(style_base_dir, "_" .. component_kebab .. ".scss")
+        if file_exists(by_component) then
+            return by_component
+        end
+
+        local without_page_suffix = component_kebab:gsub("%-page$", "")
+        if without_page_suffix ~= component_kebab then
+            local by_component_without_page = path_join(style_base_dir, "_" .. without_page_suffix .. ".scss")
+            if file_exists(by_component_without_page) then
+                return by_component_without_page
+            end
+        end
+    end
+
+    return nil
+end
+
 local function display_page_name(component_name)
     if component_name:sub(-4) == "Page" then
         return component_name:sub(1, -5)
@@ -80,23 +139,32 @@ local function display_page_name(component_name)
 end
 
 local function collect_pages()
-    local page_files = vim.fn.glob(PAGES_DIR .. "/**/page.rs", true, true)
+    local page_files = vim.fn.glob(PAGES_DIR .. "/**/*.rs", true, true)
     local pages = {}
 
     for _, page_rs in ipairs(page_files) do
-        local component_name = parse_component_name(page_rs)
-        if component_name then
-            local page_dir = vim.fn.fnamemodify(page_rs, ":h")
-            local relative_dir = page_dir:sub(#PAGES_DIR + 2)
+        if vim.fn.fnamemodify(page_rs, ":t") ~= "mod.rs" then
+            local component_name = parse_component_name(page_rs)
+            if component_name and component_name:sub(-4) == "Page" then
+                local page_dir = vim.fn.fnamemodify(page_rs, ":h")
+                local rust_relative = path_relative(PAGES_DIR, page_rs)
+                local relative_dir = vim.fn.fnamemodify(rust_relative, ":h")
+                if relative_dir == "." then
+                    relative_dir = ""
+                end
 
-            table.insert(pages, {
-                display_name = display_page_name(component_name),
-                component_name = component_name,
-                page_dir = page_dir,
-                relative_dir = relative_dir,
-                page_rs = page_rs,
-                page_scss = path_join(PAGE_STYLES_DIR, relative_dir, "_page.scss"),
-            })
+                local page = {
+                    display_name = display_page_name(component_name),
+                    component_name = component_name,
+                    page_dir = page_dir,
+                    relative_dir = relative_dir,
+                    page_rs = page_rs,
+                    rust_relative = rust_relative,
+                }
+                page.page_scss = resolve_page_style(page)
+
+                table.insert(pages, page)
+            end
         end
     end
 
@@ -126,14 +194,15 @@ local function collect_page_entries(page)
         {
             label = "Page",
             rust_path = page.page_rs,
-            rust_relative = path_join(page.relative_dir, "page.rs"),
-            scss_path = file_exists(page.page_scss) and page.page_scss or nil,
+            rust_relative = page.rust_relative,
+            scss_path = page.page_scss,
             entry_type = "page",
         },
     }
 
+    local page_file_name = vim.fn.fnamemodify(page.page_rs, ":t")
     local components_dir = path_join(page.page_dir, "components")
-    if vim.fn.isdirectory(components_dir) == 1 then
+    if page_file_name == "page.rs" and vim.fn.isdirectory(components_dir) == 1 then
         local component_files = vim.fn.glob(components_dir .. "/**/*.rs", true, true)
 
         for _, rust_path in ipairs(component_files) do
@@ -233,7 +302,7 @@ function M.pick_page()
 
     local pages = collect_pages()
     if #pages == 0 then
-        vim.notify("No page.rs components found in " .. PAGES_DIR, vim.log.levels.WARN)
+        vim.notify("No page components found in " .. PAGES_DIR, vim.log.levels.WARN)
         return
     end
 
@@ -245,7 +314,7 @@ function M.pick_page()
                 entry_maker = function(page)
                     return {
                         value = page,
-                        display = page.display_name .. "  " .. path_join(page.relative_dir, "page.rs"),
+                        display = page.display_name .. "  " .. page.rust_relative,
                         ordinal = page.display_name .. " " .. page.component_name .. " " .. page.relative_dir,
                     }
                 end,
