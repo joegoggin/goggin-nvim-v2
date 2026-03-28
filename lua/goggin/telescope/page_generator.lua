@@ -1323,58 +1323,60 @@ local function prompt_for_page_component_target()
 
                     local page = selection.value
 
-                    vim.ui.input({ prompt = "Component name (e.g. Workflow): " }, function(component_input)
-                        if not component_input or trim(component_input) == "" then
-                            return
-                        end
+                    vim.schedule(function()
+                        vim.ui.input({ prompt = "Component name (e.g. Workflow): " }, function(component_input)
+                            if not component_input or trim(component_input) == "" then
+                                return
+                            end
 
-                        vim.ui.select(
-                            { "No", "Yes" },
-                            { prompt = "Nest component in a sub-directory?" },
-                            function(choice)
-                                if not choice then
-                                    return
-                                end
-
-                                if choice == "No" then
-                                    create_page_component(page, component_input, "")
-                                    return
-                                end
-
-                                local base_dir = path_join(page.page_dir, "components")
-                                ensure_directory(base_dir)
-
-                                local options = collect_component_subdirectories(base_dir)
-                                table.insert(options, "+ Create new sub-directory")
-
-                                vim.ui.select(options, { prompt = "Select page components sub-directory" }, function(dir)
-                                    if not dir then
+                            vim.ui.select(
+                                { "No", "Yes" },
+                                { prompt = "Nest component in a sub-directory?" },
+                                function(choice)
+                                    if not choice then
                                         return
                                     end
 
-                                    if dir == "+ Create new sub-directory" then
-                                        vim.ui.input(
-                                            { prompt = "New sub-directory (relative to page components): " },
-                                            function(new_dir)
-                                                if not new_dir or trim(new_dir) == "" then
-                                                    return
-                                                end
-
-                                                local normalized = normalize_relative_dir(new_dir)
-                                                if normalized == "" then
-                                                    vim.notify("Invalid sub-directory.", vim.log.levels.WARN)
-                                                    return
-                                                end
-
-                                                create_page_component(page, component_input, normalized)
-                                            end
-                                        )
-                                    else
-                                        create_page_component(page, component_input, dir)
+                                    if choice == "No" then
+                                        create_page_component(page, component_input, "")
+                                        return
                                     end
-                                end)
-                            end
-                        )
+
+                                    local base_dir = path_join(page.page_dir, "components")
+                                    ensure_directory(base_dir)
+
+                                    local options = collect_component_subdirectories(base_dir)
+                                    table.insert(options, "+ Create new sub-directory")
+
+                                    vim.ui.select(options, { prompt = "Select page components sub-directory" }, function(dir)
+                                        if not dir then
+                                            return
+                                        end
+
+                                        if dir == "+ Create new sub-directory" then
+                                            vim.ui.input(
+                                                { prompt = "New sub-directory (relative to page components): " },
+                                                function(new_dir)
+                                                    if not new_dir or trim(new_dir) == "" then
+                                                        return
+                                                    end
+
+                                                    local normalized = normalize_relative_dir(new_dir)
+                                                    if normalized == "" then
+                                                        vim.notify("Invalid sub-directory.", vim.log.levels.WARN)
+                                                        return
+                                                    end
+
+                                                    create_page_component(page, component_input, normalized)
+                                                end
+                                            )
+                                        else
+                                            create_page_component(page, component_input, dir)
+                                        end
+                                    end)
+                                end
+                            )
+                        end)
                     end)
                 end)
 
