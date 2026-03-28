@@ -35,7 +35,27 @@ local function is_directory(path)
 end
 
 local function path_join(...)
-    return table.concat({ ... }, "/")
+    local parts = {}
+    for _, part in ipairs({ ... }) do
+        if part and part ~= "" then
+            table.insert(parts, part)
+        end
+    end
+
+    return table.concat(parts, "/")
+end
+
+local function path_relative(root, path)
+    local prefix = root .. "/"
+    if path:sub(1, #prefix) == prefix then
+        return path:sub(#prefix + 1)
+    end
+
+    if path == root then
+        return ""
+    end
+
+    return path
 end
 
 local function trim(value)
@@ -249,6 +269,74 @@ local function ensure_forward(index_path, target)
     return true
 end
 
+local function replace_forward(index_path, old_target, new_target)
+    ensure_file(index_path)
+
+    local old_line = string.format('@forward "%s";', old_target)
+    local new_line = string.format('@forward "%s";', new_target)
+    local lines = read_lines(index_path)
+    local changed = false
+    local has_new = has_line(lines, new_line)
+    local normalized = {}
+
+    for _, line in ipairs(lines) do
+        if old_target ~= new_target and line == old_line then
+            if not has_new then
+                table.insert(normalized, new_line)
+                has_new = true
+            end
+            changed = true
+        else
+            table.insert(normalized, line)
+        end
+    end
+
+    if not has_new then
+        table.insert(normalized, new_line)
+        changed = true
+    end
+
+    if changed then
+        write_lines(index_path, normalized)
+    end
+
+    return changed
+end
+
+local function move_path(source, destination)
+    if source == destination then
+        return true, nil
+    end
+
+    local result = vim.fn.rename(source, destination)
+    if result == 0 then
+        return true, nil
+    end
+
+    return false, string.format("Failed to move %s to %s", source, destination)
+end
+
+local function resolve_partial_style(base_dir, stem)
+    local kebab_stem = stem:gsub("_", "-")
+    local direct = path_join(base_dir, "_" .. kebab_stem .. ".scss")
+    if file_exists(direct) then
+        return direct
+    end
+
+    local parent = vim.fn.fnamemodify(base_dir, ":t"):gsub("_", "-")
+    local prefixed = path_join(base_dir, "_" .. parent .. "-" .. kebab_stem .. ".scss")
+    if file_exists(prefixed) then
+        return prefixed
+    end
+
+    return nil
+end
+
+local function style_forward_target_from_path(style_path)
+    local stem = vim.fn.fnamemodify(style_path, ":t:r")
+    return stem:gsub("^_", "")
+end
+
 local function run_command(command, args)
     local cmd = { command }
     vim.list_extend(cmd, args)
@@ -341,27 +429,109 @@ local function parse_component_name(file_path)
     return nil
 end
 
-local function collect_pages()
-    local page_files = vim.fn.glob(PAGES_DIR .. "/**/page.rs", true, true)
-    local pages = {}
+local function resolve_page_style_path(page)
+    if page.is_module_layout then
+        local module_style_dir =
+            page.module_relative_dir ~= "" and path_join(PAGE_STYLES_DIR, page.module_relative_dir) or PAGE_STYLES_DIR
+        local module_style = path_join(module_style_dir, "_page.scss")
+        if file_exists(module_style) then
+            return module_style
+        end
 
-    for _, page_rs in ipairs(page_files) do
-        local component_name = parse_component_name(page_rs)
-        if component_name then
-            local page_dir = vim.fn.fnamemodify(page_rs, ":h")
-            local relative_dir = page_dir:sub(#PAGES_DIR + 2)
+        return nil
+    end
 
-            table.insert(pages, {
-                page_rs = page_rs,
-                page_dir = page_dir,
-                relative_dir = relative_dir,
-                page_component_name = component_name,
-                display_name = component_name:gsub("Page$", ""),
-            })
+    local style_parent_dir =
+        page.rust_parent_relative ~= "" and path_join(PAGE_STYLES_DIR, page.rust_parent_relative) or PAGE_STYLES_DIR
+
+    local by_stem = resolve_partial_style(style_parent_dir, page.module_name)
+    if by_stem then
+        return by_stem
+    end
+
+    local component_kebab = to_kebab_case(page.page_component_name)
+    if component_kebab ~= "" then
+        local by_component = path_join(style_parent_dir, "_" .. component_kebab .. ".scss")
+        if file_exists(by_component) then
+            return by_component
+        end
+
+        local without_page_suffix = component_kebab:gsub("%-page$", "")
+        if without_page_suffix ~= component_kebab then
+            local by_component_without_page = path_join(style_parent_dir, "_" .. without_page_suffix .. ".scss")
+            if file_exists(by_component_without_page) then
+                return by_component_without_page
+            end
         end
     end
 
+    return nil
+end
+
+local function collect_pages()
+    local page_files = vim.fn.glob(PAGES_DIR .. "/**/*.rs", true, true)
+    local page_by_module = {}
+    local pages = {}
+
+    for _, page_rs in ipairs(page_files) do
+        local file_name = vim.fn.fnamemodify(page_rs, ":t")
+        if file_name ~= "mod.rs" then
+            local component_name = parse_component_name(page_rs)
+            if component_name and component_name:sub(-4) == "Page" then
+                local rust_relative = path_relative(PAGES_DIR, page_rs)
+                local is_component_file = rust_relative:match("^components/") or rust_relative:match("/components/")
+                if not is_component_file then
+                    local rust_parent_relative = vim.fn.fnamemodify(rust_relative, ":h")
+                    if rust_parent_relative == "." then
+                        rust_parent_relative = ""
+                    end
+
+                    local module_name = vim.fn.fnamemodify(rust_relative, ":t:r")
+                    local is_module_layout = file_name == "page.rs"
+                    local module_relative_dir = module_name
+
+                    if is_module_layout then
+                        module_relative_dir = rust_parent_relative
+                        module_name = vim.fn.fnamemodify(module_relative_dir, ":t")
+                    elseif rust_parent_relative ~= "" then
+                        module_relative_dir = path_join(rust_parent_relative, module_name)
+                    end
+
+                    if module_relative_dir ~= "" then
+                        local page = {
+                            page_rs = page_rs,
+                            rust_relative = rust_relative,
+                            rust_parent_relative = rust_parent_relative,
+                            page_dir = path_join(PAGES_DIR, module_relative_dir),
+                            relative_dir = module_relative_dir,
+                            module_relative_dir = module_relative_dir,
+                            module_name = module_name,
+                            is_module_layout = is_module_layout,
+                            page_component_name = component_name,
+                            display_name = component_name:gsub("Page$", ""),
+                        }
+
+                        page.page_style_path = resolve_page_style_path(page)
+
+                        local existing = page_by_module[module_relative_dir]
+                        if not existing or (page.is_module_layout and not existing.is_module_layout) then
+                            page_by_module[module_relative_dir] = page
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    for _, page in pairs(page_by_module) do
+        table.insert(pages, page)
+    end
+
     table.sort(pages, function(a, b)
+        if a.display_name == b.display_name then
+            return a.module_relative_dir < b.module_relative_dir
+        end
+
         return a.display_name < b.display_name
     end)
 
@@ -440,7 +610,7 @@ local function parse_route_segments(route_value, subroute_value)
     }, nil
 end
 
-local function build_page_component_name(input_name, path_segments)
+local function build_page_component_name(input_name)
     local base = to_pascal_case(input_name)
     base = base:gsub("Page$", "")
 
@@ -448,27 +618,7 @@ local function build_page_component_name(input_name, path_segments)
         return nil
     end
 
-    local suffix_parts = {}
-    if #path_segments > 0 then
-        for _, segment in ipairs(path_segments) do
-            local cleaned = segment:gsub("^:", "")
-            local pascal = to_pascal_case(cleaned)
-            if pascal ~= "" then
-                table.insert(suffix_parts, pascal)
-            end
-        end
-    end
-
-    local suffix = ""
-    if #suffix_parts > 0 then
-        suffix = table.concat(suffix_parts, "")
-    end
-
-    if suffix ~= "" and suffix:sub(1, #base) == base then
-        suffix = suffix:sub(#base + 1)
-    end
-
-    return base .. suffix .. "Page"
+    return base .. "Page"
 end
 
 local function class_name_from_component(component_name)
@@ -532,6 +682,42 @@ local function mark_once(map, list, path)
     if not map[path] then
         map[path] = true
         table.insert(list, path)
+    end
+end
+
+local function ensure_page_export(fs_segments, component_name, touched_map, touched_files)
+    local pages_root_mod = path_join(PAGES_DIR, "mod.rs")
+    local top_segment = fs_segments[1]
+    local root_wildcard = false
+
+    if top_segment then
+        local root_lines = read_lines(pages_root_mod)
+        root_wildcard = has_line(root_lines, "pub use " .. top_segment .. "::*;")
+    end
+
+    if root_wildcard and #fs_segments > 1 then
+        local tail_segments = {}
+        for i = 2, #fs_segments do
+            table.insert(tail_segments, fs_segments[i])
+        end
+
+        local top_mod = path_join(PAGES_DIR, top_segment, "mod.rs")
+        local top_use = table.concat(tail_segments, "::") .. "::" .. component_name
+        if ensure_use_declaration(top_mod, top_use) then
+            mark_once(touched_map, touched_files, top_mod)
+        end
+        normalize_mod_layout(top_mod)
+        mark_once(touched_map, touched_files, top_mod)
+        return
+    end
+
+    if not root_wildcard then
+        local root_use = table.concat(fs_segments, "::") .. "::" .. component_name
+        if ensure_use_declaration(pages_root_mod, root_use) then
+            mark_once(touched_map, touched_files, pages_root_mod)
+        end
+        normalize_mod_layout(pages_root_mod)
+        mark_once(touched_map, touched_files, pages_root_mod)
     end
 end
 
@@ -628,7 +814,7 @@ local function create_page(route_value, is_private, page_name_input, subroute_va
         return
     end
 
-    local component_name = build_page_component_name(page_name_input, parsed.path_segments)
+    local component_name = build_page_component_name(page_name_input)
     if not component_name then
         vim.notify("Invalid page name.", vim.log.levels.WARN)
         return
@@ -645,25 +831,48 @@ local function create_page(route_value, is_private, page_name_input, subroute_va
         return
     end
 
-    local leaf_dir = PAGES_DIR
-    local style_leaf_dir = PAGE_STYLES_DIR
-    for _, segment in ipairs(parsed.fs_segments) do
-        leaf_dir = path_join(leaf_dir, segment)
-        style_leaf_dir = path_join(style_leaf_dir, segment)
+    local leaf_segment = parsed.fs_segments[#parsed.fs_segments]
+    local parent_segments = {}
+    for i = 1, #parsed.fs_segments - 1 do
+        table.insert(parent_segments, parsed.fs_segments[i])
     end
 
-    ensure_directory(leaf_dir)
-    ensure_directory(style_leaf_dir)
+    local pages_cursor = PAGES_DIR
+    for _, segment in ipairs(parent_segments) do
+        local conflicting_flat_page = path_join(pages_cursor, segment .. ".rs")
+        if file_exists(conflicting_flat_page) then
+            vim.notify(
+                "Cannot create nested page under flat page: " .. conflicting_flat_page .. ". Convert it to a module first.",
+                vim.log.levels.WARN
+            )
+            return
+        end
 
-    local rust_path = path_join(leaf_dir, "page.rs")
-    local scss_path = path_join(style_leaf_dir, "_page.scss")
+        pages_cursor = path_join(pages_cursor, segment)
+    end
 
-    if file_exists(rust_path) then
+    local current_pages_dir = PAGES_DIR
+    local current_style_dir = PAGE_STYLES_DIR
+    for _, segment in ipairs(parent_segments) do
+        current_pages_dir = path_join(current_pages_dir, segment)
+        current_style_dir = path_join(current_style_dir, segment)
+    end
+
+    ensure_directory(current_pages_dir)
+    ensure_directory(current_style_dir)
+
+    local rust_path = path_join(current_pages_dir, leaf_segment .. ".rs")
+    local module_page_path = path_join(current_pages_dir, leaf_segment, "page.rs")
+    local scss_stem = to_kebab_case(leaf_segment)
+    local scss_path = path_join(current_style_dir, "_" .. scss_stem .. ".scss")
+    local module_scss_path = path_join(current_style_dir, leaf_segment, "_page.scss")
+
+    if file_exists(rust_path) or file_exists(module_page_path) then
         vim.notify("Page already exists: " .. rust_path, vim.log.levels.WARN)
         return
     end
 
-    if file_exists(scss_path) then
+    if file_exists(scss_path) or file_exists(module_scss_path) then
         vim.notify("Page style already exists: " .. scss_path, vim.log.levels.WARN)
         return
     end
@@ -676,8 +885,8 @@ local function create_page(route_value, is_private, page_name_input, subroute_va
     mark_once(touched_map, touched_files, rust_path)
     mark_once(touched_map, touched_files, scss_path)
 
-    local current_pages_dir = PAGES_DIR
-    for _, segment in ipairs(parsed.fs_segments) do
+    current_pages_dir = PAGES_DIR
+    for _, segment in ipairs(parent_segments) do
         local parent_mod = path_join(current_pages_dir, "mod.rs")
         if ensure_mod_declaration(parent_mod, segment, false) then
             mark_once(touched_map, touched_files, parent_mod)
@@ -691,27 +900,17 @@ local function create_page(route_value, is_private, page_name_input, subroute_va
         ensure_file(path_join(current_pages_dir, "mod.rs"))
     end
 
-    local leaf_mod = path_join(current_pages_dir, "mod.rs")
-    if ensure_mod_declaration(leaf_mod, "page", false) then
-        mark_once(touched_map, touched_files, leaf_mod)
+    local leaf_parent_mod = path_join(current_pages_dir, "mod.rs")
+    if ensure_mod_declaration(leaf_parent_mod, leaf_segment, false) then
+        mark_once(touched_map, touched_files, leaf_parent_mod)
     end
-    if ensure_use_declaration(leaf_mod, "page::" .. component_name) then
-        mark_once(touched_map, touched_files, leaf_mod)
-    end
-    normalize_mod_layout(leaf_mod)
-    mark_once(touched_map, touched_files, leaf_mod)
+    normalize_mod_layout(leaf_parent_mod)
+    mark_once(touched_map, touched_files, leaf_parent_mod)
 
-    local root_use = table.concat(parsed.fs_segments, "::") .. "::" .. component_name
+    ensure_page_export(parsed.fs_segments, component_name, touched_map, touched_files)
 
-    local pages_root_mod = path_join(PAGES_DIR, "mod.rs")
-    if ensure_use_declaration(pages_root_mod, root_use) then
-        mark_once(touched_map, touched_files, pages_root_mod)
-    end
-    normalize_mod_layout(pages_root_mod)
-    mark_once(touched_map, touched_files, pages_root_mod)
-
-    local current_style_dir = PAGE_STYLES_DIR
-    for _, segment in ipairs(parsed.fs_segments) do
+    current_style_dir = PAGE_STYLES_DIR
+    for _, segment in ipairs(parent_segments) do
         local parent_index = path_join(current_style_dir, "index.scss")
         if ensure_forward(parent_index, segment) then
             mark_once(touched_map, touched_files, parent_index)
@@ -721,9 +920,9 @@ local function create_page(route_value, is_private, page_name_input, subroute_va
         ensure_directory(current_style_dir)
     end
 
-    local leaf_index = path_join(current_style_dir, "index.scss")
-    if ensure_forward(leaf_index, "page") then
-        mark_once(touched_map, touched_files, leaf_index)
+    local parent_index = path_join(current_style_dir, "index.scss")
+    if ensure_forward(parent_index, scss_stem) then
+        mark_once(touched_map, touched_files, parent_index)
     end
 
     if insert_route_into_app(parsed.route_path, component_name, is_private) then
@@ -756,6 +955,32 @@ local function collect_component_subdirectories(base_dir)
     return results
 end
 
+local function collect_page_subdirectories(base_dir)
+    local directories = vim.fn.glob(base_dir .. "/**/", true, true)
+    local seen = {}
+    local results = {}
+
+    for _, directory in ipairs(directories) do
+        if directory ~= base_dir .. "/" then
+            local cleaned = directory:gsub("/$", "")
+            local relative = cleaned:sub(#base_dir + 2)
+            local is_components_path =
+                relative == "components"
+                or relative:match("^components/")
+                or relative:match("/components$")
+                or relative:match("/components/")
+
+            if relative ~= "" and not is_components_path and not seen[relative] then
+                seen[relative] = true
+                table.insert(results, relative)
+            end
+        end
+    end
+
+    table.sort(results)
+    return results
+end
+
 local function normalize_relative_dir(input)
     local raw_segments = split_path_segments(input)
     local normalized = {}
@@ -768,6 +993,52 @@ local function normalize_relative_dir(input)
     end
 
     return table.concat(normalized, "/")
+end
+
+local function choose_page_subdirectory(route_value, on_select)
+    local parsed, parse_error = parse_route_segments(route_value, "")
+    if parse_error then
+        vim.notify(parse_error, vim.log.levels.WARN)
+        return
+    end
+
+    if #parsed.fs_segments == 0 then
+        vim.notify("Root route generation is not supported by this generator.", vim.log.levels.WARN)
+        return
+    end
+
+    local base_dir = PAGES_DIR
+    for _, segment in ipairs(parsed.fs_segments) do
+        base_dir = path_join(base_dir, segment)
+    end
+
+    local options = collect_page_subdirectories(base_dir)
+    table.insert(options, "+ Create new sub-directory")
+
+    vim.ui.select(options, { prompt = "Select page sub-directory" }, function(choice)
+        if not choice then
+            return
+        end
+
+        if choice == "+ Create new sub-directory" then
+            vim.ui.input({ prompt = "New sub-directory (relative to route): " }, function(new_dir)
+                if not new_dir or trim(new_dir) == "" then
+                    return
+                end
+
+                local normalized = normalize_relative_dir(new_dir)
+                if normalized == "" then
+                    vim.notify("Invalid sub-directory.", vim.log.levels.WARN)
+                    return
+                end
+
+                on_select(normalized)
+            end)
+            return
+        end
+
+        on_select(choice)
+    end)
 end
 
 local function ensure_page_components_module(page_mod_path)
@@ -796,7 +1067,108 @@ local function ensure_page_components_module(page_mod_path)
     return true
 end
 
+local function convert_page_to_module_layout(page, touched_map, touched_files)
+    if page.is_module_layout then
+        return true
+    end
+
+    local source_rust_path = page.page_rs
+    local target_page_dir = page.page_dir
+    local target_rust_path = path_join(target_page_dir, "page.rs")
+
+    if not file_exists(source_rust_path) then
+        vim.notify("Page file not found: " .. source_rust_path, vim.log.levels.WARN)
+        return false
+    end
+
+    if file_exists(target_rust_path) then
+        vim.notify("Cannot convert page. Target already exists: " .. target_rust_path, vim.log.levels.WARN)
+        return false
+    end
+
+    ensure_directory(target_page_dir)
+
+    local moved_page, page_move_error = move_path(source_rust_path, target_rust_path)
+    if not moved_page then
+        vim.notify(page_move_error, vim.log.levels.WARN)
+        return false
+    end
+
+    mark_once(touched_map, touched_files, target_rust_path)
+
+    local page_mod = path_join(target_page_dir, "mod.rs")
+    if ensure_page_components_module(page_mod) then
+        mark_once(touched_map, touched_files, page_mod)
+    end
+    if ensure_mod_declaration(page_mod, "page", false) then
+        mark_once(touched_map, touched_files, page_mod)
+    end
+    if ensure_use_declaration(page_mod, "page::" .. page.page_component_name) then
+        mark_once(touched_map, touched_files, page_mod)
+    end
+    normalize_mod_layout(page_mod)
+    mark_once(touched_map, touched_files, page_mod)
+
+    local module_style_dir = path_join(PAGE_STYLES_DIR, page.module_relative_dir)
+    local target_style_path = path_join(module_style_dir, "_page.scss")
+    local existing_style_path = page.page_style_path
+
+    ensure_directory(module_style_dir)
+
+    if existing_style_path and file_exists(existing_style_path) then
+        if existing_style_path ~= target_style_path then
+            if file_exists(target_style_path) then
+                vim.notify("Cannot convert page style. Target already exists: " .. target_style_path, vim.log.levels.WARN)
+                return false
+            end
+
+            local moved_style, style_move_error = move_path(existing_style_path, target_style_path)
+            if not moved_style then
+                vim.notify(style_move_error, vim.log.levels.WARN)
+                return false
+            end
+        end
+    elseif not file_exists(target_style_path) then
+        local class_name = class_name_from_component(page.page_component_name)
+        if class_name then
+            write_lines(target_style_path, build_scss_template(class_name))
+        else
+            write_lines(target_style_path, {})
+        end
+    end
+
+    mark_once(touched_map, touched_files, target_style_path)
+
+    local module_style_index = path_join(module_style_dir, "index.scss")
+    if ensure_forward(module_style_index, "page") then
+        mark_once(touched_map, touched_files, module_style_index)
+    end
+
+    local parent_style_dir =
+        page.rust_parent_relative ~= "" and path_join(PAGE_STYLES_DIR, page.rust_parent_relative) or PAGE_STYLES_DIR
+    local parent_style_index = path_join(parent_style_dir, "index.scss")
+    local previous_forward_target = to_kebab_case(page.module_name)
+    if existing_style_path and existing_style_path ~= "" then
+        previous_forward_target = style_forward_target_from_path(existing_style_path)
+    end
+
+    if replace_forward(parent_style_index, previous_forward_target, page.module_name) then
+        mark_once(touched_map, touched_files, parent_style_index)
+    end
+
+    page.page_rs = target_rust_path
+    page.rust_relative = path_relative(PAGES_DIR, target_rust_path)
+    page.rust_parent_relative = page.module_relative_dir
+    page.is_module_layout = true
+    page.page_style_path = target_style_path
+
+    return true
+end
+
 local function create_page_component(page, input_name, relative_dir)
+    local touched_map = {}
+    local touched_files = {}
+
     local normalized_input = to_pascal_case(input_name)
     if normalized_input == "" then
         vim.notify("Invalid component name.", vim.log.levels.WARN)
@@ -830,9 +1202,6 @@ local function create_page_component(page, input_name, relative_dir)
         style_dir = path_join(style_dir, relative_dir)
     end
 
-    ensure_directory(rust_dir)
-    ensure_directory(style_dir)
-
     local rust_path = path_join(rust_dir, module_name .. ".rs")
     local scss_path = path_join(style_dir, "_" .. suffix_kebab .. ".scss")
 
@@ -846,11 +1215,19 @@ local function create_page_component(page, input_name, relative_dir)
         return
     end
 
+    if not page.is_module_layout then
+        local converted = convert_page_to_module_layout(page, touched_map, touched_files)
+        if not converted then
+            return
+        end
+    end
+
+    ensure_directory(rust_dir)
+    ensure_directory(style_dir)
+
     write_lines(rust_path, build_page_component_template(component_name, class_name, module_name))
     write_lines(scss_path, build_scss_template(class_name))
 
-    local touched_map = {}
-    local touched_files = {}
     mark_once(touched_map, touched_files, rust_path)
     mark_once(touched_map, touched_files, scss_path)
 
@@ -919,7 +1296,7 @@ end
 local function prompt_for_page_component_target()
     local pages = collect_pages()
     if #pages == 0 then
-        vim.notify("No pages with page.rs found in " .. PAGES_DIR, vim.log.levels.WARN)
+        vim.notify("No page components found in " .. PAGES_DIR, vim.log.levels.WARN)
         return
     end
 
@@ -931,8 +1308,8 @@ local function prompt_for_page_component_target()
                 entry_maker = function(page)
                     return {
                         value = page,
-                        display = page.display_name .. "  " .. page.relative_dir,
-                        ordinal = page.display_name .. " " .. page.relative_dir,
+                        display = page.display_name .. "  " .. page.rust_relative,
+                        ordinal = page.display_name .. " " .. page.page_component_name .. " " .. page.rust_relative,
                     }
                 end,
             }),
@@ -1025,8 +1402,19 @@ local function prompt_create_page()
                     return
                 end
 
-                vim.ui.input({ prompt = "Sub route (optional): " }, function(subroute)
-                    create_page(route_value, visibility == "Private", page_name, subroute or "")
+                vim.ui.select({ "No", "Yes" }, { prompt = "Nest page in a sub-directory?" }, function(choice)
+                    if not choice then
+                        return
+                    end
+
+                    if choice == "No" then
+                        create_page(route_value, visibility == "Private", page_name, "")
+                        return
+                    end
+
+                    choose_page_subdirectory(route_value, function(subroute)
+                        create_page(route_value, visibility == "Private", page_name, subroute)
+                    end)
                 end)
             end)
         end)
