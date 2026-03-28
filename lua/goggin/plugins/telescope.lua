@@ -40,8 +40,10 @@ return {
         local builtin = require("telescope.builtin")
         local component_pair_picker = require("goggin.telescope.component_pair_picker")
         local component_generator = require("goggin.telescope.component_generator")
+        local component_deleter = require("goggin.telescope.component_deleter")
         local page_generator = require("goggin.telescope.page_generator")
         local page_component_picker = require("goggin.telescope.page_component_picker")
+        local page_deleter = require("goggin.telescope.page_deleter")
 
         keymap("n", "<leader>ff", function()
             builtin.find_files({ no_ignore = true, hidden = true })
@@ -104,5 +106,11 @@ return {
         keymap("n", "<leader>np", function()
             page_generator.generate()
         end, { desc = "New Page" })
+        keymap("n", "<leader>dp", function()
+            page_deleter.pick()
+        end, { desc = "Delete Page/Component" })
+        keymap("n", "<leader>dc", function()
+            component_deleter.pick()
+        end, { desc = "Delete Component" })
     end,
 }
