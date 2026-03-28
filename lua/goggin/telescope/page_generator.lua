@@ -405,6 +405,24 @@ local function format_touched_files(touched_files)
     end
 end
 
+local function open_created_pair(rust_path, scss_path)
+    vim.schedule(function()
+        if not file_exists(rust_path) then
+            vim.notify("Rust file not found: " .. rust_path, vim.log.levels.WARN)
+            return
+        end
+
+        vim.cmd("edit " .. vim.fn.fnameescape(rust_path))
+
+        if scss_path and file_exists(scss_path) then
+            vim.cmd("vsplit " .. vim.fn.fnameescape(scss_path))
+            vim.cmd("wincmd h")
+        elseif scss_path then
+            vim.notify("Style file not found: " .. scss_path, vim.log.levels.WARN)
+        end
+    end)
+end
+
 local function parse_component_name(file_path)
     local lines = read_lines(file_path)
     local awaiting_component_fn = false
@@ -933,6 +951,8 @@ local function create_page(route_value, is_private, page_name_input, subroute_va
 
     vim.notify("Created page " .. component_name)
     vim.notify(table.concat(touched_files, "\n"), vim.log.levels.INFO)
+
+    open_created_pair(rust_path, scss_path)
 end
 
 local function collect_component_subdirectories(base_dir)
@@ -1275,6 +1295,8 @@ local function create_page_component(page, input_name, relative_dir)
 
     vim.notify("Created page component " .. component_name)
     vim.notify(table.concat(touched_files, "\n"), vim.log.levels.INFO)
+
+    open_created_pair(rust_path, scss_path)
 end
 
 local function prompt_for_page_component_target()
