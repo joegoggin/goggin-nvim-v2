@@ -1,8 +1,22 @@
 local M = {}
 
-local WEB_ROOT = "/home/joegoggin/Projects/gig-log/web"
-local COMPONENTS_DIR = WEB_ROOT .. "/src/components"
-local STYLES_DIR = WEB_ROOT .. "/styles/components"
+local web_paths = require("goggin.telescope.web_paths")
+
+local COMPONENTS_DIR = nil
+local STYLES_DIR = nil
+
+local function resolve_paths()
+    local paths, err = web_paths.resolve({ "components_dir", "styles_components_dir" })
+    if not paths then
+        vim.notify(err, vim.log.levels.WARN)
+        return false
+    end
+
+    COMPONENTS_DIR = paths.components_dir
+    STYLES_DIR = paths.styles_components_dir
+
+    return true
+end
 
 local function file_exists(path)
     return vim.uv.fs_stat(path) ~= nil
@@ -519,6 +533,10 @@ local function choose_subdirectory(input_name)
 end
 
 function M.generate()
+    if not resolve_paths() then
+        return
+    end
+
     if not is_directory(COMPONENTS_DIR) then
         vim.notify("Components directory not found: " .. COMPONENTS_DIR, vim.log.levels.WARN)
         return

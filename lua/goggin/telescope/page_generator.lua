@@ -3,13 +3,27 @@ local action_state = require("telescope.actions.state")
 local finders = require("telescope.finders")
 local pickers = require("telescope.pickers")
 local conf = require("telescope.config").values
+local web_paths = require("goggin.telescope.web_paths")
 
 local M = {}
 
-local WEB_ROOT = "/home/joegoggin/Projects/gig-log/web"
-local PAGES_DIR = WEB_ROOT .. "/src/pages"
-local PAGE_STYLES_DIR = WEB_ROOT .. "/styles/pages"
-local APP_PATH = WEB_ROOT .. "/src/app.rs"
+local PAGES_DIR = nil
+local PAGE_STYLES_DIR = nil
+local APP_PATH = nil
+
+local function resolve_paths()
+    local paths, err = web_paths.resolve({ "pages_dir", "page_styles_dir" })
+    if not paths then
+        vim.notify(err, vim.log.levels.WARN)
+        return false
+    end
+
+    PAGES_DIR = paths.pages_dir
+    PAGE_STYLES_DIR = paths.page_styles_dir
+    APP_PATH = paths.app_path
+
+    return true
+end
 
 local function file_exists(path)
     return vim.uv.fs_stat(path) ~= nil
@@ -1020,6 +1034,10 @@ local function prompt_create_page()
 end
 
 function M.generate()
+    if not resolve_paths() then
+        return
+    end
+
     if not is_directory(PAGES_DIR) then
         vim.notify("Pages directory not found: " .. PAGES_DIR, vim.log.levels.WARN)
         return
