@@ -995,24 +995,8 @@ local function normalize_relative_dir(input)
     return table.concat(normalized, "/")
 end
 
-local function choose_page_subdirectory(route_value, on_select)
-    local parsed, parse_error = parse_route_segments(route_value, "")
-    if parse_error then
-        vim.notify(parse_error, vim.log.levels.WARN)
-        return
-    end
-
-    if #parsed.fs_segments == 0 then
-        vim.notify("Root route generation is not supported by this generator.", vim.log.levels.WARN)
-        return
-    end
-
-    local base_dir = PAGES_DIR
-    for _, segment in ipairs(parsed.fs_segments) do
-        base_dir = path_join(base_dir, segment)
-    end
-
-    local options = collect_page_subdirectories(base_dir)
+local function choose_page_subdirectory(on_select)
+    local options = collect_page_subdirectories(PAGES_DIR)
     table.insert(options, "+ Create new sub-directory")
 
     vim.ui.select(options, { prompt = "Select page sub-directory" }, function(choice)
@@ -1021,7 +1005,7 @@ local function choose_page_subdirectory(route_value, on_select)
         end
 
         if choice == "+ Create new sub-directory" then
-            vim.ui.input({ prompt = "New sub-directory (relative to route): " }, function(new_dir)
+            vim.ui.input({ prompt = "New sub-directory (relative to pages): " }, function(new_dir)
                 if not new_dir or trim(new_dir) == "" then
                     return
                 end
@@ -1412,7 +1396,7 @@ local function prompt_create_page()
                         return
                     end
 
-                    choose_page_subdirectory(route_value, function(subroute)
+                    choose_page_subdirectory(function(subroute)
                         create_page(route_value, visibility == "Private", page_name, subroute)
                     end)
                 end)
