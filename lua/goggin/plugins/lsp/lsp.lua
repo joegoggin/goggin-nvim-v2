@@ -81,6 +81,19 @@ return {
             },
         })
 
+        vim.lsp.config("rust_analyzer", {
+            settings = {
+                ["rust-analyzer"] = {
+                    cargo = {
+                        features = "all",
+                    },
+                    check = {
+                        features = "all",
+                    },
+                },
+            },
+        })
+
         -- enable LSP servers not installed through mason
         vim.lsp.enable("rust_analyzer")
     end,
