@@ -45,6 +45,7 @@ return {
         local page_generator = require("goggin.telescope.page_generator")
         local page_component_picker = require("goggin.telescope.page_component_picker")
         local page_deleter = require("goggin.telescope.page_deleter")
+        local color_picker = require("goggin.telescope.color_picker")
 
         keymap("n", "<leader>ff", function()
             builtin.find_files({ no_ignore = true, hidden = true })
@@ -95,6 +96,9 @@ return {
         })
         keymap("n", "<leader>ft", "<cmd>TodoTelescope<cr>", { desc = "Find ToDos" })
         keymap("n", "<leader>fb", "<cmd>Telescope buffers<cr>", { desc = "Find Open Buffers" })
+        keymap("n", "<leader>fvc", function()
+            color_picker.pick()
+        end, { desc = "Find SCSS Colors" })
         keymap("n", "<leader>oc", function()
             component_pair_picker.pick()
         end, { desc = "Open Component + Style" })
