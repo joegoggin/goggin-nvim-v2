@@ -260,6 +260,11 @@ end
 local function pick_page_entries(page)
     local entries = collect_page_entries(page)
 
+    if #entries == 1 and entries[1].entry_type == "page" then
+        open_entry(entries[1])
+        return
+    end
+
     pickers
         .new({}, {
             prompt_title = "Open Page Component: " .. page.display_name,
