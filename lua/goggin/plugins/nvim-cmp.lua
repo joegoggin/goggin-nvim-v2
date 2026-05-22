@@ -80,6 +80,7 @@ return {
             -- sources for autocompletion
             sources = cmp.config.sources({
                 { name = "codex_skills", keyword_length = 0, priority = 1000 },
+                { name = "codex_apps", keyword_length = 0, priority = 1000 },
                 { name = "codex_files", keyword_length = 0, priority = 1000 },
                 { name = "nvim_lsp" },
                 { name = "luasnip" }, -- snippets

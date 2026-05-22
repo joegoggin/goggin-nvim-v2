@@ -5,8 +5,10 @@ local uv = vim.uv or vim.loop
 local MAX_FILE_ITEMS = 10000
 local FILE_CACHE_TTL = 30000
 local SKILL_CACHE_TTL = 30000
+local APP_CACHE_TTL = 30000
 
 local skill_cache = nil
+local app_cache = nil
 local file_cache = {}
 local registered = false
 
@@ -316,6 +318,93 @@ local function collect_skills()
     return items
 end
 
+local function collect_app_tool_cache_paths()
+    local root = expand_path("~/.codex/cache/codex_apps_tools")
+    local paths = {}
+
+    if not root or not is_directory(root) then
+        return paths
+    end
+
+    local handle = uv.fs_scandir(root)
+    if not handle then
+        return paths
+    end
+
+    while true do
+        local name = uv.fs_scandir_next(handle)
+        if not name then
+            break
+        end
+
+        if name:match("%.json$") then
+            local path = path_join(root, name)
+            if is_file(path) then
+                table.insert(paths, path)
+            end
+        end
+    end
+
+    table.sort(paths)
+    return paths
+end
+
+local function app_connector_metadata(tool_entry)
+    local tool = type(tool_entry.tool) == "table" and tool_entry.tool or {}
+    local meta = type(tool._meta) == "table" and tool._meta or {}
+
+    return {
+        name = tool_entry.connector_name or meta.connector_name,
+        connector_id = tool_entry.connector_id or meta.connector_id,
+        description = tool_entry.namespace_description or meta.connector_description or "",
+        namespace = tool_entry.tool_namespace or "",
+    }
+end
+
+local function append_app(items, seen, tool_entry)
+    if type(tool_entry) ~= "table" then
+        return
+    end
+
+    local app = app_connector_metadata(tool_entry)
+    if not app.name or app.name == "" or not app.connector_id or app.connector_id == "" or seen[app.connector_id] then
+        return
+    end
+
+    seen[app.connector_id] = true
+    table.insert(items, app)
+end
+
+local function collect_apps()
+    local now = uv.now()
+    if app_cache and now - app_cache.time < APP_CACHE_TTL then
+        return app_cache.items
+    end
+
+    local items = {}
+    local seen = {}
+
+    for _, path in ipairs(collect_app_tool_cache_paths()) do
+        local ok, cache = pcall(vim.json.decode, read_file(path) or "")
+        if ok and type(cache) == "table" and type(cache.tools) == "table" then
+            for _, tool_entry in ipairs(cache.tools) do
+                append_app(items, seen, tool_entry)
+            end
+        end
+    end
+
+    table.sort(items, function(left, right)
+        return left.name < right.name
+    end)
+
+    app_cache = {
+        time = now,
+        items = items,
+    }
+
+    return items
+end
+
 local function markdown_buffer(bufnr)
     local filetype = vim.bo[bufnr].filetype
     local name = vim.api.nvim_buf_get_name(bufnr)
@@ -369,6 +458,26 @@ local function skill_documentation(skill)
     return skill.description .. "\n\n" .. skill.path
 end
 
+local function app_documentation(app)
+    local lines = {}
+
+    if app.description ~= "" then
+        table.insert(lines, app.description)
+    end
+
+    table.insert(lines, "Connector: `" .. app.connector_id .. "`")
+
+    if app.namespace ~= "" then
+        table.insert(lines, "Namespace: `" .. app.namespace .. "`")
+    end
+
+    return table.concat(lines, "\n\n")
+end
+
+local function escape_markdown_link_text(value)
+    return value:gsub("\\", "\\\\"):gsub("%]", "\\]")
+end
+
 local SkillSource = {}
 SkillSource.__index = SkillSource
 
@@ -411,6 +520,56 @@ function SkillSource:complete(params, callback)
             documentation = {
                 kind = self.cmp.lsp.MarkupKind.Markdown,
                 value = skill_documentation(skill),
+            },
+        })
+    end
+
+    callback(items)
+end
+
+local AppSource = {}
+AppSource.__index = AppSource
+
+function AppSource.new(cmp)
+    return setmetatable({ cmp = cmp }, AppSource)
+end
+
+function AppSource:is_available()
+    return M.is_codex_prompt_buffer(0)
+end
+
+function AppSource:get_debug_name()
+    return "codex_apps"
+end
+
+function AppSource:get_trigger_characters()
+    return { "$" }
+end
+
+function AppSource:get_keyword_pattern()
+    return [[\$[0-9A-Za-z:_-]*]]
+end
+
+function AppSource:complete(params, callback)
+    local fragment = params.context.cursor_before_line:sub(params.offset)
+    if fragment:sub(1, 1) ~= "$" then
+        callback({})
+        return
+    end
+
+    local items = {}
+    for _, app in ipairs(collect_apps()) do
+        local label = "$" .. app.name
+        local insert_text = "[$" .. escape_markdown_link_text(app.name) .. "](app://" .. app.connector_id .. ")"
+        table.insert(items, {
+            label = label,
+            insertText = insert_text,
+            filterText = table.concat({ label, app.description, app.connector_id, app.namespace }, " "),
+            kind = self.cmp.lsp.CompletionItemKind.Module or self.cmp.lsp.CompletionItemKind.Keyword,
+            detail = "Codex app / MCP server",
+            documentation = {
+                kind = self.cmp.lsp.MarkupKind.Markdown,
+                value = app_documentation(app),
             },
         })
     end
@@ -589,6 +748,7 @@ function M.setup(cmp)
     end
 
     cmp.register_source("codex_skills", SkillSource.new(cmp))
+    cmp.register_source("codex_apps", AppSource.new(cmp))
     cmp.register_source("codex_files", FileSource.new(cmp))
 
     registered = true
