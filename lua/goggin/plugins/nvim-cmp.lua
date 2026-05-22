@@ -18,6 +18,8 @@ return {
     config = function()
         local cmp = require("cmp")
 
+        require("goggin.cmp.codex").setup(cmp)
+
         local luasnip = require("luasnip")
 
         local lspkind = require("lspkind")
@@ -77,6 +79,8 @@ return {
             }),
             -- sources for autocompletion
             sources = cmp.config.sources({
+                { name = "codex_skills", keyword_length = 0, priority = 1000 },
+                { name = "codex_files", keyword_length = 0, priority = 1000 },
                 { name = "nvim_lsp" },
                 { name = "luasnip" }, -- snippets
                 { name = "buffer" }, -- text within current buffer
