@@ -53,8 +53,38 @@ return {
         table.insert(buttons, dashboard.button("e e", "   Browse Files", ":Yazi cwd<CR>"))
         vim.list_extend(buttons, browse_buttons)
 
+        local function get_default_remote_branch()
+            local branch = vim.fn.systemlist({
+                "git",
+                "symbolic-ref",
+                "--quiet",
+                "--short",
+                "refs/remotes/origin/HEAD",
+            })[1]
+
+            if vim.v.shell_error == 0 and branch and branch ~= "" then
+                return vim.trim(branch)
+            end
+
+            return "main"
+        end
+
+        local function open_branch_diff()
+            vim.cmd("CodeDiff " .. get_default_remote_branch() .. "...HEAD")
+        end
+
+        local branch_diff_button = dashboard.button("d b", "   Code Diff Branch")
+        branch_diff_button.on_press = open_branch_diff
+        branch_diff_button.opts.keymap = {
+            "n",
+            "db",
+            open_branch_diff,
+            { noremap = true, silent = true, nowait = true, desc = "Open branch code diff" },
+        }
+
         vim.list_extend(buttons, {
-            dashboard.button("d", "   Code Diff", ":CodeDiff HEAD<CR>"),
+            dashboard.button("d d", "   Code Diff", ":CodeDiff HEAD<CR>"),
+            branch_diff_button,
             dashboard.button("g", "   Git", ":Git<CR>"),
             dashboard.button("u", "   Update Plugins", ":Lazy update<CR>"),
             dashboard.button("q", " 󰍃  Quit Neovim", ":qa!<CR>"),
