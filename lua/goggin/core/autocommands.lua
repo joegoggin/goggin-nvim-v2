@@ -3,6 +3,36 @@ vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
     command = "set filetype=make",
 })
 
+vim.api.nvim_create_autocmd("FileType", {
+    pattern = "markdown",
+    callback = function(event)
+        local markdown = require("goggin.core.markdown")
+
+        vim.keymap.set("n", "t", markdown.toggle_checkbox, {
+            buffer = event.buf,
+            desc = "Toggle Markdown Checkbox",
+            nowait = true,
+            silent = true,
+        })
+
+        if not markdown.is_issue_file(event.buf) then
+            return
+        end
+
+        vim.keymap.set("n", "gd", markdown.goto_step_definition, {
+            buffer = event.buf,
+            desc = "Go to Issue Step",
+            silent = true,
+        })
+
+        vim.keymap.set("n", "gp", markdown.goto_progress, {
+            buffer = event.buf,
+            desc = "Go to Issue Progress",
+            silent = true,
+        })
+    end,
+})
+
 local function open_alpha_dashboard()
     local buf = vim.api.nvim_get_current_buf()
     if vim.bo[buf].filetype == "yazi" then
