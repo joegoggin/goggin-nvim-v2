@@ -172,6 +172,9 @@ keymap("i", "<c-v>", "<c-r>+", {
 -- Select --
 
 -- -- Normal Mode -- --
+keymap("n", "<C-S-v>", "<C-v>", {
+    desc = "Visual Block",
+})
 keymap("n", "<c-a>", "ggVG", {
     desc = "Select All",
 })
