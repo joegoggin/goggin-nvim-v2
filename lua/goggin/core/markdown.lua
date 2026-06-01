@@ -11,6 +11,18 @@ local function current_line()
     return row, line
 end
 
+local function line_at(row)
+    return vim.api.nvim_buf_get_lines(0, row - 1, row, false)[1] or ""
+end
+
+local function trim(value)
+    return value:match("^%s*(.-)%s*$")
+end
+
+local function escape_pattern(value)
+    return value:gsub("([^%w])", "%%%1")
+end
+
 local function save_current_buffer()
     if vim.bo.buftype ~= "" then
         return
@@ -31,7 +43,7 @@ local function jump_to_matching_line(pattern, missing_message)
     local line_count = vim.api.nvim_buf_line_count(0)
 
     for row = 1, line_count do
-        local line = vim.api.nvim_buf_get_lines(0, row - 1, row, false)[1] or ""
+        local line = line_at(row)
         if line:match(pattern) then
             vim.api.nvim_win_set_cursor(0, { row, 0 })
             return true
@@ -46,7 +58,7 @@ local function current_step_number()
     local current_row = vim.api.nvim_win_get_cursor(0)[1]
 
     for row = current_row, 1, -1 do
-        local line = vim.api.nvim_buf_get_lines(0, row - 1, row, false)[1] or ""
+        local line = line_at(row)
         local step_number = line:match("^###%s+Step%s+(%d+)%s*$")
 
         if step_number then
@@ -55,6 +67,97 @@ local function current_step_number()
     end
 
     return nil
+end
+
+local function current_test_command()
+    local _, line = current_line()
+
+    return line:match("^%s*[-*+]%s+%[[ xX]%]%s+Run%s+`([^`]+)`")
+end
+
+local function useful_commands_block()
+    local line_count = vim.api.nvim_buf_line_count(0)
+    local heading_row = nil
+
+    for row = 1, line_count do
+        if line_at(row):match("^###%s+Useful commands%s*$") then
+            heading_row = row
+            break
+        end
+    end
+
+    if not heading_row then
+        return nil, nil
+    end
+
+    local fence_start = nil
+
+    for row = heading_row + 1, line_count do
+        local line = line_at(row)
+
+        if line:match("^###%s+") then
+            return nil, nil
+        end
+
+        if line:match("^```%s*[%w_-]*%s*$") then
+            fence_start = row
+            break
+        end
+    end
+
+    if not fence_start then
+        return nil, nil
+    end
+
+    for row = fence_start + 1, line_count do
+        if line_at(row):match("^```%s*$") then
+            return fence_start + 1, row - 1
+        end
+    end
+
+    return fence_start + 1, line_count
+end
+
+local function current_useful_command()
+    local row, line = current_line()
+    local start_row, end_row = useful_commands_block()
+
+    if not start_row or row < start_row or row > end_row then
+        return nil
+    end
+
+    local command = trim(line)
+    if command == "" then
+        return nil
+    end
+
+    return command
+end
+
+local function goto_useful_command(command)
+    local start_row, end_row = useful_commands_block()
+
+    if not start_row then
+        warn("No ### Useful commands block found")
+        return false
+    end
+
+    for row = start_row, end_row do
+        if trim(line_at(row)) == command then
+            vim.api.nvim_win_set_cursor(0, { row, 0 })
+            return true
+        end
+    end
+
+    warn("No useful command found for: " .. command)
+    return false
+end
+
+local function goto_test_command(command)
+    local escaped_command = escape_pattern(command)
+    local pattern = "^%s*[-*+]%s+%[[ xX]%]%s+Run%s+`" .. escaped_command .. "`"
+
+    return jump_to_matching_line(pattern, "No test checkmark found for: " .. command)
 end
 
 function M.is_issue_file(bufnr)
@@ -84,6 +187,13 @@ function M.toggle_checkbox()
 end
 
 function M.goto_progress()
+    local command = current_useful_command()
+
+    if command then
+        goto_test_command(command)
+        return
+    end
+
     local step_number = current_step_number()
 
     if step_number then
@@ -99,6 +209,13 @@ end
 
 function M.goto_step_definition()
     local _, line = current_line()
+    local command = current_test_command()
+
+    if command then
+        goto_useful_command(command)
+        return
+    end
+
     local step_number = line:match("^%s*[-*+]%s+%[[ xX]%]%s+Step%s+(%d+)%s+%-")
 
     if not step_number then
