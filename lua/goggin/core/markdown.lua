@@ -1,5 +1,8 @@
 local M = {}
 
+local line_changes_ns = vim.api.nvim_create_namespace("goggin_issue_line_changes")
+local line_changes_augroup = vim.api.nvim_create_augroup("GogginIssueLineChanges", { clear = false })
+
 local function warn(message)
     vim.notify(message, vim.log.levels.WARN)
 end
@@ -255,6 +258,22 @@ local function goto_confirm_checkmark(index)
     return false
 end
 
+local function line_change_highlight(line)
+    local function starts_with_label(label)
+        return line == label or line:match("^" .. label .. ":%s*") or line:match("^" .. label .. "%s")
+    end
+
+    if line:match("^%s") or starts_with_label("Added") or starts_with_label("Addeded") then
+        return "DiffAdd"
+    end
+
+    if line:match("^%s") or starts_with_label("Removed") then
+        return "DiffDelete"
+    end
+
+    return nil
+end
+
 function M.is_issue_file(bufnr)
     bufnr = bufnr or 0
 
@@ -262,6 +281,64 @@ function M.is_issue_file(bufnr)
     local basename = vim.fn.fnamemodify(name, ":t")
 
     return basename:match("^issue%-.*%.md$") ~= nil
+end
+
+function M.highlight_line_changes(bufnr)
+    bufnr = bufnr or 0
+
+    if not vim.api.nvim_buf_is_valid(bufnr) then
+        return
+    end
+
+    vim.api.nvim_buf_clear_namespace(bufnr, line_changes_ns, 0, -1)
+
+    if not M.is_issue_file(bufnr) then
+        return
+    end
+
+    local in_line_changes = false
+    local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+
+    for index, line in ipairs(lines) do
+        if in_line_changes and line:match("^#+%s+") then
+            in_line_changes = false
+        end
+
+        if in_line_changes then
+            local highlight = line_change_highlight(line)
+
+            if highlight then
+                vim.api.nvim_buf_set_extmark(bufnr, line_changes_ns, index - 1, 0, {
+                    end_col = #line,
+                    hl_group = highlight,
+                    priority = 250,
+                })
+            end
+        end
+
+        if line:match("^###%s+Lines Changed%s*$") then
+            in_line_changes = true
+        end
+    end
+end
+
+function M.setup_line_change_highlights(bufnr)
+    bufnr = bufnr or 0
+
+    M.highlight_line_changes(bufnr)
+
+    if not M.is_issue_file(bufnr) then
+        return
+    end
+
+    vim.api.nvim_clear_autocmds({ group = line_changes_augroup, buffer = bufnr })
+    vim.api.nvim_create_autocmd({ "BufEnter", "TextChanged", "TextChangedI" }, {
+        group = line_changes_augroup,
+        buffer = bufnr,
+        callback = function(event)
+            M.highlight_line_changes(event.buf)
+        end,
+    })
 end
 
 function M.toggle_checkbox()

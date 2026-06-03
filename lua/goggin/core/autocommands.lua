@@ -19,6 +19,8 @@ vim.api.nvim_create_autocmd("FileType", {
             return
         end
 
+        markdown.setup_line_change_highlights(event.buf)
+
         vim.keymap.set("n", "gd", markdown.goto_step_definition, {
             buffer = event.buf,
             desc = "Go to Issue Step",
