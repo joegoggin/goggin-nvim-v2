@@ -15,6 +15,18 @@ vim.api.nvim_create_autocmd("FileType", {
             silent = true,
         })
 
+        vim.keymap.set("n", "<c-c>", markdown.copy_line, {
+            buffer = event.buf,
+            desc = "Copy Markdown Line",
+            silent = true,
+        })
+
+        vim.keymap.set("x", "<c-c>", markdown.copy_selection, {
+            buffer = event.buf,
+            desc = "Copy Markdown Selection",
+            silent = true,
+        })
+
         if not markdown.is_issue_file(event.buf) then
             return
         end

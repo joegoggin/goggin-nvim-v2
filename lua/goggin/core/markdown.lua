@@ -26,6 +26,91 @@ local function escape_pattern(value)
     return value:gsub("([^%w])", "%%%1")
 end
 
+local function fence_start(line)
+    local marker, info = line:match("^%s*(```+)%s*([^%s`]*)")
+    if marker then
+        return marker, info
+    end
+
+    marker, info = line:match("^%s*(~~~+)%s*([^%s~]*)")
+    if marker then
+        return marker, info
+    end
+
+    return nil, nil
+end
+
+local function fence_end(line, marker)
+    if not marker then
+        return false
+    end
+
+    local escaped_marker = escape_pattern(marker)
+    return line:match("^%s*" .. escaped_marker .. "%s*$") ~= nil
+end
+
+local function is_diff_info(info)
+    return (info or ""):lower() == "diff"
+end
+
+local function diff_fence_rows(max_row)
+    local rows = {}
+    local in_fence = false
+    local in_diff_fence = false
+    local active_marker = nil
+
+    for row = 1, max_row do
+        local line = line_at(row)
+
+        if in_fence then
+            if in_diff_fence then
+                rows[row] = true
+            end
+
+            if fence_end(line, active_marker) then
+                in_fence = false
+                in_diff_fence = false
+                active_marker = nil
+            end
+        else
+            local marker, info = fence_start(line)
+            if marker then
+                in_fence = true
+                in_diff_fence = is_diff_info(info)
+                active_marker = marker
+            end
+        end
+    end
+
+    return rows
+end
+
+local function cleaned_diff_lines(lines, source_rows)
+    local max_row = 0
+
+    for _, row in ipairs(source_rows) do
+        if row > max_row then
+            max_row = row
+        end
+    end
+
+    local rows_in_diff_fences = diff_fence_rows(max_row)
+    local cleaned = vim.deepcopy(lines)
+
+    for index, line in ipairs(cleaned) do
+        if rows_in_diff_fences[source_rows[index]] and line:match("^%+") then
+            cleaned[index] = line:sub(2)
+        end
+    end
+
+    return cleaned
+end
+
+local function copy_to_registers(lines, register_type)
+    vim.fn.setreg("+", lines, register_type)
+    vim.fn.setreg('"', lines, register_type)
+end
+
 local function save_current_buffer()
     if vim.bo.buftype ~= "" then
         return
@@ -356,6 +441,44 @@ function M.toggle_checkbox()
 
     vim.api.nvim_buf_set_lines(0, row - 1, row, false, { updated })
     save_current_buffer()
+end
+
+function M.copy_line()
+    local row, line = current_line()
+    local lines = cleaned_diff_lines({ line }, { row })
+
+    copy_to_registers(lines, "V")
+end
+
+function M.copy_selection(selection_type)
+    local start_pos
+    local end_pos
+    local active_selection = selection_type == nil
+
+    if selection_type then
+        start_pos = vim.fn.getpos("'<")
+        end_pos = vim.fn.getpos("'>")
+    else
+        selection_type = vim.fn.mode()
+        start_pos = vim.fn.getpos("v")
+        end_pos = vim.fn.getpos(".")
+    end
+
+    local opts = { type = selection_type }
+    local lines = vim.fn.getregion(start_pos, end_pos, opts)
+    local regions = vim.fn.getregionpos(start_pos, end_pos, opts)
+    local source_rows = {}
+
+    for index, region in ipairs(regions) do
+        source_rows[index] = region[1][2]
+    end
+
+    copy_to_registers(cleaned_diff_lines(lines, source_rows), selection_type)
+
+    if active_selection then
+        local escape = vim.api.nvim_replace_termcodes("<Esc>", true, false, true)
+        vim.api.nvim_feedkeys(escape, "n", false)
+    end
 end
 
 function M.goto_progress()
